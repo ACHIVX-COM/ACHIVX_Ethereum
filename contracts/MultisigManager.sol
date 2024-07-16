@@ -9,6 +9,7 @@ contract MultisigManager {
 
     mapping(address => bool) votingAccounts;
     uint votingAccountsNumber;
+    uint votingAccountsListGeneration;
 
     function _addVotingAccount(address _addr) private {
         if (!votingAccounts[_addr]) {
@@ -34,12 +35,14 @@ contract MultisigManager {
         mapping(address => bool) approvedBy;
         uint approvals;
         bool completed;
+        uint generation;
     }
 
     mapping(bytes32 => Request) requests;
     uint requestCount = 0;
 
-    function _makeRequestId() private returns (bytes32 reqId) {
+    function _makeRequest() private returns (bytes32 reqId) {
+        require(votingAccounts[msg.sender], "not a voting account");
         reqId = keccak256(
             abi.encode(
                 requestCount++,
@@ -47,13 +50,9 @@ contract MultisigManager {
                 address(this)
             )
         );
-    }
-
-    function _makeRequest() private returns (bytes32 reqId) {
-        require(votingAccounts[msg.sender], "not a voting account");
-        reqId = _makeRequestId();
         requests[reqId].approvedBy[msg.sender] = true;
         requests[reqId].approvals = 1;
+        requests[reqId].generation = votingAccountsListGeneration;
     }
 
     function _approveRequest(bytes32 reqId) private returns (bool approved) {
@@ -63,6 +62,10 @@ contract MultisigManager {
 
         require(req.approvals > 0, "invalid request id");
         require(!req.completed, "request already completed");
+        require(
+            req.generation == votingAccountsListGeneration,
+            "request invalidated after voters list change"
+        );
         require(
             !req.approvedBy[msg.sender],
             "already approved by this account"
@@ -92,6 +95,8 @@ contract MultisigManager {
             votingAccountsNumber >= MIN_VOTING_ACCOUNTS,
             "not enough voting accounts"
         );
+
+        votingAccountsListGeneration = 1;
     }
     // endregion
 
@@ -181,6 +186,8 @@ contract MultisigManager {
                 _removeVotingAccount(removeVoters[i]);
             }
         }
+
+        votingAccountsListGeneration += 1;
     }
     // endregion
 
