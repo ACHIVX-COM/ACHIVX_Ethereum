@@ -45,18 +45,18 @@ abstract contract Ownable is IOwnable {
     address public owner;
 
     /**
-     * @dev The Ownable constructor sets the original `owner` of the contract to the sender
-     * account.
+     * @param _initialOwner the initial owner of the contract
      */
-    constructor() {
-        owner = msg.sender;
+    constructor(address _initialOwner) {
+        require(_initialOwner != address(0), "owner is zero");
+        owner = _initialOwner;
     }
 
     /**
      * @dev Throws if called by any account other than the owner.
      */
     modifier onlyOwner() {
-        require(msg.sender == owner);
+        require(msg.sender == owner, "not an owner");
         _;
     }
 
@@ -118,12 +118,9 @@ abstract contract BasicToken is Ownable, ERC20Basic {
 
     mapping(address => uint) public balances;
 
-    /**
-     * @dev Fix for the ERC20 short address attack.
-     */
-    modifier onlyPayloadSize(uint size) {
-        require(!(msg.data.length < size + 4));
-        _;
+    constructor(uint _initialSupply, address _supplier) {
+        _totalSupply = _initialSupply;
+        balances[_supplier] = _initialSupply;
     }
 
     /**
@@ -134,7 +131,7 @@ abstract contract BasicToken is Ownable, ERC20Basic {
     function transfer(
         address _to,
         uint _value
-    ) public virtual override onlyPayloadSize(2 * 32) {
+    ) public virtual override {
         balances[msg.sender] = balances[msg.sender].sub(_value);
         balances[_to] = balances[_to].add(_value);
         emit Transfer(msg.sender, _to, _value);
@@ -176,7 +173,7 @@ abstract contract StandardToken is BasicToken, ERC20 {
         address _from,
         address _to,
         uint _value
-    ) public virtual override onlyPayloadSize(3 * 32) {
+    ) public virtual override {
         uint _allowance = allowed[_from][msg.sender];
 
         if (_allowance < MAX_UINT) {
@@ -195,7 +192,7 @@ abstract contract StandardToken is BasicToken, ERC20 {
     function approve(
         address _spender,
         uint _value
-    ) public virtual override onlyPayloadSize(2 * 32) {
+    ) public virtual override {
         // To change the approve amount you first have to reduce the addresses`
         //  allowance to zero by calling `approve(_spender, 0)` if it is not
         //  already 0 to mitigate the race condition described here:
@@ -253,7 +250,7 @@ abstract contract ExtendedToken is StandardToken, ERC20Extended {
  * @title Pausable
  * @dev Base contract which allows children to implement an emergency stop mechanism.
  */
-contract Pausable is Ownable, IPausable {
+abstract contract Pausable is Ownable, IPausable {
     event Pause();
     event Unpause();
 
@@ -263,7 +260,7 @@ contract Pausable is Ownable, IPausable {
      * @dev Modifier to make a function callable only when the contract is not paused.
      */
     modifier whenNotPaused() {
-        require(!paused);
+        require(!paused, "contract paused");
         _;
     }
 
@@ -271,7 +268,7 @@ contract Pausable is Ownable, IPausable {
      * @dev Modifier to make a function callable only when the contract is paused.
      */
     modifier whenPaused() {
-        require(paused);
+        require(paused, "contract not paused");
         _;
     }
 
@@ -298,11 +295,12 @@ abstract contract BlackList is Ownable, BasicToken, IBlackList {
         return isBlackListed[_maker];
     }
 
-    function getOwner() external view returns (address) {
-        return owner;
-    }
-
     mapping(address => bool) public isBlackListed;
+
+    modifier whenNotBlackListed(address account) {
+        require(!isBlackListed[account], "account blacklisted");
+        _;
+    }
 
     function addBlackList(address _evilUser) public onlyOwner {
         isBlackListed[_evilUser] = true;
@@ -315,7 +313,7 @@ abstract contract BlackList is Ownable, BasicToken, IBlackList {
     }
 
     function destroyBlackFunds(address _blackListedUser) public onlyOwner {
-        require(isBlackListed[_blackListedUser]);
+        require(isBlackListed[_blackListedUser], "user not blacklisted");
         uint dirtyFunds = balanceOf(_blackListedUser);
         balances[_blackListedUser] = 0;
         _totalSupply -= dirtyFunds;
@@ -355,6 +353,10 @@ abstract contract Deprecateable is Ownable, IDeprecatable {
     address public upgradedAddress;
     bool public deprecated;
 
+    constructor() {
+        deprecated = false;
+    }
+
     /** Emitted when contract is deprecated */
     event Deprecate(address newAddress);
 
@@ -368,7 +370,7 @@ abstract contract Deprecateable is Ownable, IDeprecatable {
     }
 
     modifier onlyUpgraded() {
-        require(deprecated);
+        require(deprecated, "contract not deprecated");
         require(upgradedAddress == msg.sender);
         _;
     }
@@ -388,34 +390,31 @@ contract Token is
     uint public decimals;
 
     /**
-     * The contract can be initialized with a number of tokens
-     * All the tokens are deposited to the owner address
-     *
+     * @param _owner Initial owner of the contract
      * @param _initialSupply Initial supply of the contract
+     * @param _supplier The wallet that receives initial supply of tokens
      * @param _name Token Name
      * @param _symbol Token symbol
      * @param _decimals Token decimals
      */
     constructor(
+        address _owner,
         uint _initialSupply,
+        address _supplier,
         string memory _name,
         string memory _symbol,
         uint _decimals
-    ) {
-        _totalSupply = _initialSupply;
+    ) Ownable(_owner) BasicToken(_initialSupply, _supplier) {
         name = _name;
         symbol = _symbol;
         decimals = _decimals;
-        balances[owner] = _initialSupply;
-        deprecated = false;
     }
 
     // Forward ERC20 methods to upgraded contract if this one is deprecated
     function transfer(
         address _to,
         uint _value
-    ) public override(BasicToken, ERC20Basic) whenNotPaused {
-        require(!isBlackListed[msg.sender]);
+    ) public override(BasicToken, ERC20Basic) whenNotPaused whenNotBlackListed(msg.sender) {
         if (deprecated) {
             return
                 UpgradedStandardToken(upgradedAddress).transferByLegacy(
@@ -433,8 +432,7 @@ contract Token is
         address _from,
         address _to,
         uint _value
-    ) public override(ERC20, StandardToken) whenNotPaused {
-        require(!isBlackListed[_from]);
+    ) public override(ERC20, StandardToken) whenNotPaused whenNotBlackListed(_from) {
         if (deprecated) {
             return
                 UpgradedStandardToken(upgradedAddress).transferFromByLegacy(
@@ -463,7 +461,7 @@ contract Token is
     function approve(
         address _spender,
         uint _value
-    ) public override(ERC20, StandardToken) onlyPayloadSize(2 * 32) {
+    ) public override(ERC20, StandardToken) {
         if (deprecated) {
             return
                 UpgradedStandardToken(upgradedAddress).approveByLegacy(
@@ -492,8 +490,7 @@ contract Token is
     function batchTransfer(
         address[] calldata _tos,
         uint[] calldata _values
-    ) public override whenNotPaused {
-        require(!isBlackListed[msg.sender]);
+    ) public override whenNotPaused whenNotBlackListed(msg.sender) {
         if (deprecated) {
             return
                 UpgradedStandardToken(upgradedAddress).batchTransferByLegacy(
@@ -546,10 +543,10 @@ contract Token is
 
     /**
      * Redeem tokens.
-     * These tokens are withdrawn from the owner address
-     * if the balance must be enough to cover the redeem
-     * or the call will fail.
-     * @param amount Number of tokens to be issued
+     * These tokens are withdrawn from the owner address.
+     * The balance must be enough to cover the redeem or the call will fail.
+     *
+     * @param amount Number of tokens to be redeemed
      */
     function redeem(uint amount) public onlyOwner {
         require(_totalSupply >= amount);

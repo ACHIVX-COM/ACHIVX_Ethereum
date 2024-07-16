@@ -63,15 +63,17 @@ contract MultisigManager {
 
         require(req.approvals > 0, "invalid request id");
         require(!req.completed, "request already completed");
+        require(
+            !req.approvedBy[msg.sender],
+            "already approved by this account"
+        );
 
-        if (!req.approvedBy[msg.sender]) {
-            req.approvedBy[msg.sender] = true;
-            req.approvals += 1;
+        req.approvedBy[msg.sender] = true;
+        req.approvals += 1;
 
-            if (req.approvals > getMinApprovals()) {
-                approved = true;
-                req.completed = true;
-            }
+        if (req.approvals >= getMinApprovals()) {
+            approved = true;
+            req.completed = true;
         }
     }
 
@@ -101,10 +103,10 @@ contract MultisigManager {
 
     mapping(bytes32 => OwnerChangeRequest) ownerChangeRequests;
     event OwnerChangeRequested(
-        address requestedBy,
+        bytes32 reqId,
+        address by,
         address token,
-        address newOwner,
-        bytes32 requestId
+        address newOwner
     );
 
     function requestOwnerChange(
@@ -114,7 +116,7 @@ contract MultisigManager {
         reqId = _makeRequest();
         ownerChangeRequests[reqId].token = token;
         ownerChangeRequests[reqId].newOwner = newOwner;
-        emit OwnerChangeRequested(msg.sender, address(token), newOwner, reqId);
+        emit OwnerChangeRequested(reqId, msg.sender, address(token), newOwner);
     }
 
     function approveOwnerChange(bytes32 reqId) external {
@@ -138,6 +140,7 @@ contract MultisigManager {
     }
     mapping(bytes32 => VotersChangeRequest) votersChangeRequests;
     event VotersListChangeRequested(
+        bytes32 reqId,
         address by,
         address[] add,
         address[] remove
@@ -152,14 +155,22 @@ contract MultisigManager {
         reqId = _makeRequest();
         votersChangeRequests[reqId].addVoters = addVoters;
         votersChangeRequests[reqId].removeVoters = removeVoters;
-        emit VotersListChangeRequested(msg.sender, addVoters, removeVoters);
+        emit VotersListChangeRequested(
+            reqId,
+            msg.sender,
+            addVoters,
+            removeVoters
+        );
     }
 
-    function approveCotersListChange(bytes32 reqId) external {
+    function approveVotersListChange(bytes32 reqId) external {
         address[] storage addVoters = votersChangeRequests[reqId].addVoters;
         address[] storage removeVoters = votersChangeRequests[reqId]
             .removeVoters;
-        require(addVoters.length > 0 || removeVoters.length > 0);
+        require(
+            addVoters.length > 0 || removeVoters.length > 0,
+            "invalid voters list change request"
+        );
 
         if (_approveRequest(reqId)) {
             for (uint i = 0; i < addVoters.length; ++i) {
@@ -175,7 +186,7 @@ contract MultisigManager {
 
     // region pause
     mapping(bytes32 => ManagedToken) pauseRequests;
-    event PauseRequested(address requestedBy, address token);
+    event PauseRequested(bytes32 reqId, address by, address token);
 
     function requestTokenPause(
         ManagedToken token
@@ -183,7 +194,7 @@ contract MultisigManager {
         require(address(token) != address(0));
         reqId = _makeRequest();
         pauseRequests[reqId] = token;
-        emit PauseRequested(msg.sender, address(token));
+        emit PauseRequested(reqId, msg.sender, address(token));
     }
 
     function approveTokenPause(bytes32 reqId) external {
@@ -200,7 +211,7 @@ contract MultisigManager {
 
     // region unpause
     mapping(bytes32 => ManagedToken) unpauseRequests;
-    event UnpauseRequested(address requestedBy, address token);
+    event UnpauseRequested(bytes32 reqId, address by, address token);
 
     function requestTokenUnpause(
         ManagedToken token
@@ -208,7 +219,7 @@ contract MultisigManager {
         require(address(token) != address(0));
         reqId = _makeRequest();
         unpauseRequests[reqId] = token;
-        emit UnpauseRequested(msg.sender, address(token));
+        emit UnpauseRequested(reqId, msg.sender, address(token));
     }
 
     function approveTokenUnpause(bytes32 reqId) external {
@@ -230,7 +241,8 @@ contract MultisigManager {
     }
     mapping(bytes32 => BlacklistRequest) blacklistRequests;
     event BlacklistRequested(
-        address requestedBy,
+        bytes32 reqId,
+        address by,
         address token,
         address account
     );
@@ -243,7 +255,7 @@ contract MultisigManager {
         reqId = _makeRequest();
         blacklistRequests[reqId].token = token;
         blacklistRequests[reqId].account = account;
-        emit BlacklistRequested(msg.sender, address(token), account);
+        emit BlacklistRequested(reqId, msg.sender, address(token), account);
     }
 
     function approveBlacklist(bytes32 reqId) external {
@@ -263,7 +275,8 @@ contract MultisigManager {
     // region unblacklist address
     mapping(bytes32 => BlacklistRequest) unblacklistRequests;
     event UnblacklistRequested(
-        address requestedBy,
+        bytes32 reqId,
+        address by,
         address token,
         address account
     );
@@ -276,7 +289,7 @@ contract MultisigManager {
         reqId = _makeRequest();
         unblacklistRequests[reqId].token = token;
         unblacklistRequests[reqId].account = account;
-        emit UnblacklistRequested(msg.sender, address(token), account);
+        emit UnblacklistRequested(reqId, msg.sender, address(token), account);
     }
 
     function approveUnblacklist(bytes32 reqId) external {
@@ -296,7 +309,8 @@ contract MultisigManager {
     // region destroy black funds
     mapping(bytes32 => BlacklistRequest) blackFundsDestroyRequests;
     event BlackFundsDestroyRequested(
-        address requestedBy,
+        bytes32 reqId,
+        address by,
         address token,
         address account
     );
@@ -309,7 +323,12 @@ contract MultisigManager {
         reqId = _makeRequest();
         blackFundsDestroyRequests[reqId].token = token;
         blackFundsDestroyRequests[reqId].account = account;
-        emit BlackFundsDestroyRequested(msg.sender, address(token), account);
+        emit BlackFundsDestroyRequested(
+            reqId,
+            msg.sender,
+            address(token),
+            account
+        );
     }
 
     function approveBlackFundsDestruction(bytes32 reqId) external {
@@ -333,7 +352,8 @@ contract MultisigManager {
     }
     mapping(bytes32 => DeprecationRequest) deprecationRequests;
     event DeprecationRequested(
-        address requestedBy,
+        bytes32 reqId,
+        address by,
         address token,
         address upgraded
     );
@@ -348,7 +368,7 @@ contract MultisigManager {
         reqId = _makeRequest();
         deprecationRequests[reqId].token = token;
         deprecationRequests[reqId].upgradedToken = upgraded;
-        emit DeprecationRequested(msg.sender, address(token), upgraded);
+        emit DeprecationRequested(reqId, msg.sender, address(token), upgraded);
     }
 
     function approveDeprecation(bytes32 reqId) external {
@@ -372,7 +392,13 @@ contract MultisigManager {
         uint amount;
     }
     mapping(bytes32 => TokenIssueRequest) issueRequests;
-    event IssueRequested(address by, address token, uint amount, address to);
+    event IssueRequested(
+        bytes32 reqId,
+        address by,
+        address token,
+        uint amount,
+        address to
+    );
 
     function requestIssue(
         ManagedToken token,
@@ -386,7 +412,7 @@ contract MultisigManager {
         issueRequests[reqId].token = token;
         issueRequests[reqId].to = to;
         issueRequests[reqId].amount = amount;
-        emit IssueRequested(msg.sender, address(token), amount, to);
+        emit IssueRequested(reqId, msg.sender, address(token), amount, to);
     }
 
     function approveIssue(bytes32 reqId) external {
@@ -410,7 +436,12 @@ contract MultisigManager {
         uint amount;
     }
     mapping(bytes32 => RedeemRequest) redeemRequests;
-    event RedeemRequested(address by, address token, uint amount);
+    event RedeemRequested(
+        bytes32 reqId,
+        address by,
+        address token,
+        uint amount
+    );
 
     function requestRedeem(
         ManagedToken token,
@@ -422,7 +453,7 @@ contract MultisigManager {
         reqId = _makeRequest();
         redeemRequests[reqId].token = token;
         redeemRequests[reqId].amount = amount;
-        emit RedeemRequested(msg.sender, address(token), amount);
+        emit RedeemRequested(reqId, msg.sender, address(token), amount);
     }
 
     function approveRedeem(bytes32 reqId) external {
