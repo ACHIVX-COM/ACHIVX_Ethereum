@@ -315,7 +315,7 @@ contract MultisigManager {
 
     // region destroy black funds
     mapping(bytes32 => BlacklistRequest) blackFundsDestroyRequests;
-    event BlackFundsDestroyRequested(
+    event BlackFundsDestructionRequested(
         bytes32 reqId,
         address by,
         address token,
@@ -330,7 +330,7 @@ contract MultisigManager {
         reqId = _makeRequest();
         blackFundsDestroyRequests[reqId].token = token;
         blackFundsDestroyRequests[reqId].account = account;
-        emit BlackFundsDestroyRequested(
+        emit BlackFundsDestructionRequested(
             reqId,
             msg.sender,
             address(token),

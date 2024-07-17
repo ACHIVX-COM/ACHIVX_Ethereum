@@ -313,7 +313,7 @@ abstract contract BlackList is Ownable, BasicToken, IBlackList {
     }
 
     function destroyBlackFunds(address _blackListedUser) public onlyOwner {
-        require(isBlackListed[_blackListedUser], "user not blacklisted");
+        require(isBlackListed[_blackListedUser], "account not blacklisted");
         uint dirtyFunds = balanceOf(_blackListedUser);
         balances[_blackListedUser] = 0;
         _totalSupply -= dirtyFunds;
@@ -549,11 +549,8 @@ contract Token is
      * @param amount Number of tokens to be redeemed
      */
     function redeem(uint amount) public onlyOwner {
-        require(_totalSupply >= amount);
-        require(balances[owner] >= amount);
-
-        _totalSupply -= amount;
-        balances[owner] -= amount;
+        _totalSupply = _totalSupply.sub(amount);
+        balances[owner] = balances[owner].sub(amount);
         emit Redeem(amount);
     }
 

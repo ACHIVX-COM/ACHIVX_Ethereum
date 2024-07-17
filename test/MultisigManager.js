@@ -165,6 +165,25 @@ describe("Token with MultisigManager", () => {
     });
   });
 
+  describe("requestRedeem+approveRedeem", () => {
+    it("should redeem tokens from owner account", async () => {
+      const { multisigManager, token, voters, supplier } = await loadFixture(
+        deployTokenWithMultisigManager
+      );
+
+      await token.connect(supplier).transfer(multisigManager, 100);
+
+      await multisigManager.connect(voters[0]).requestRedeem(token, 50);
+      await expect(
+        multisigManager
+          .connect(voters[1])
+          .approveRedeem(
+            await getLastRequestId(multisigManager, "RedeemRequested")
+          )
+      ).to.changeTokenBalance(token, multisigManager, -50);
+    });
+  });
+
   describe("requestVotersListChange+approveVotersListChange", () => {
     it("should allow replacing a voter", async () => {
       const {
@@ -235,6 +254,97 @@ describe("Token with MultisigManager", () => {
             await getLastRequestId(multisigManager, "VotersListChangeRequested")
           )
       ).to.be.revertedWith("not enough voting accounts will remain");
+    });
+  });
+
+  describe("requestPause+approvePause+requestUnpause+approveUnpause", () => {
+    it("should pause and unpause the token", async () => {
+      const {
+        multisigManager,
+        token,
+        voters,
+        accounts: [a1],
+      } = await loadFixture(deployTokenWithMultisigManager);
+
+      await multisigManager.connect(voters[0]).requestTokenPause(token);
+      await multisigManager
+        .connect(voters[1])
+        .approveTokenPause(
+          await getLastRequestId(multisigManager, "PauseRequested")
+        );
+
+      expect(await token.paused()).to.be.true;
+
+      await multisigManager.connect(voters[1]).requestTokenUnpause(token);
+      await multisigManager
+        .connect(voters[2])
+        .approveTokenUnpause(
+          await getLastRequestId(multisigManager, "UnpauseRequested")
+        );
+
+      expect(await token.paused()).to.be.false;
+    });
+  });
+
+  describe("requestBlacklist+requestUnblacklist", () => {
+    it("should blacklist and unblacklist users", async () => {
+      const {
+        multisigManager,
+        token,
+        voters,
+        accounts: [a1],
+      } = await loadFixture(deployTokenWithMultisigManager);
+
+      await multisigManager.connect(voters[1]).requestBlacklist(token, a1);
+      await multisigManager
+        .connect(voters[0])
+        .approveBlacklist(
+          await getLastRequestId(multisigManager, "BlacklistRequested")
+        );
+
+      expect(await token.isBlackListed(a1)).to.be.true;
+
+      await multisigManager.connect(voters[2]).requestUnblacklist(token, a1);
+      await multisigManager
+        .connect(voters[1])
+        .approveUnblacklist(
+          await getLastRequestId(multisigManager, "UnblacklistRequested")
+        );
+
+      expect(await token.isBlackListed(a1)).to.be.false;
+    });
+  });
+
+  describe("requestBlackFundsDestruction+approveBlackFundsDestruction", () => {
+    it("should destroy funds of blacklisted account", async () => {
+      const {
+        multisigManager,
+        token,
+        voters,
+        supplier,
+        accounts: [a1],
+      } = await loadFixture(deployTokenWithMultisigManager);
+
+      await token.connect(supplier).transfer(a1, 100);
+      await multisigManager.connect(voters[0]).requestBlacklist(token, a1);
+      await multisigManager
+        .connect(voters[1])
+        .approveBlacklist(
+          await getLastRequestId(multisigManager, "BlacklistRequested")
+        );
+      await multisigManager
+        .connect(voters[0])
+        .requestBlackFundsDestruction(token, a1);
+      await expect(
+        multisigManager
+          .connect(voters[1])
+          .approveBlackFundsDestruction(
+            await getLastRequestId(
+              multisigManager,
+              "BlackFundsDestructionRequested"
+            )
+          )
+      ).to.changeTokenBalance(token, a1, -100);
     });
   });
 });
