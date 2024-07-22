@@ -101,6 +101,12 @@ interface ERC20 is ERC20Basic {
  * @title ERC20 interface with extension functions
  */
 interface ERC20Extended is ERC20 {
+    /**
+     * Transfer tokens to multiple accounts
+     *
+     * @param tos addresses to send tokens to
+     * @param values amounts of tokens to send (length must match length of @param tos)
+     */
     function batchTransfer(
         address[] calldata tos,
         uint[] calldata values
@@ -128,10 +134,7 @@ abstract contract BasicToken is Ownable, ERC20Basic {
      * @param _to The address to transfer to.
      * @param _value The amount to be transferred.
      */
-    function transfer(
-        address _to,
-        uint _value
-    ) public virtual override {
+    function transfer(address _to, uint _value) public virtual override {
         balances[msg.sender] = balances[msg.sender].sub(_value);
         balances[_to] = balances[_to].add(_value);
         emit Transfer(msg.sender, _to, _value);
@@ -189,10 +192,7 @@ abstract contract StandardToken is BasicToken, ERC20 {
      * @param _spender The address which will spend the funds.
      * @param _value The amount of tokens to be spent.
      */
-    function approve(
-        address _spender,
-        uint _value
-    ) public virtual override {
+    function approve(address _spender, uint _value) public virtual override {
         // To change the approve amount you first have to reduce the addresses`
         //  allowance to zero by calling `approve(_spender, 0)` if it is not
         //  already 0 to mitigate the race condition described here:
@@ -334,7 +334,7 @@ interface UpgradedStandardToken is ERC20 {
     function transferFromByLegacy(
         address sender,
         address from,
-        address spender,
+        address to,
         uint value
     ) external;
     function approveByLegacy(
@@ -369,15 +369,71 @@ abstract contract Deprecateable is Ownable, IDeprecatable {
         emit Deprecate(_upgradedAddress);
     }
 
+    /**
+     * Allow a method to be called by upgraded version of the token contract only.
+     */
     modifier onlyUpgraded() {
         require(deprecated, "contract not deprecated");
         require(upgradedAddress == msg.sender);
         _;
     }
+
+    /**
+     * Disallow a method from being called when the contract is deprecated.
+     */
+    modifier whenNotDeprecated() {
+        require(!deprecated, "contract is deprecated");
+        _;
+    }
 }
 
+/**
+ * Methods of deprecatable ERC20 token that can be used by it's upgraded version.
+ */
+interface LegacyToken is ERC20, IDeprecatable {
+    /**
+     * Read balance of given account before contract deprecation.
+     *
+     * The balanceOf method is expected to be delegated to the upgraded contract, so a separate method is
+     * necessary to let the upgraded contract fetch initial balances of accounts.
+     */
+    function legacyBalance(address addr) external view returns (uint balance);
+
+    /**
+     * Read allowance from before the contract was deprecated.
+     *
+     * The allowance() method is expected to be delegated to the upgraded contract, so a separate method is
+     * necessary to let the upgraded contract fetch initial allowances.
+     */
+    function legacyAllowance(
+        address from,
+        address to
+    ) external view returns (uint remaining);
+
+    /**
+     * Emit Transfer event from upgraded contract.
+     *
+     * Should only be callable by the upgraded contract.
+     * Makes transfers performed through the upgraded contract be reflected in the legacy contract.
+     */
+    function emitTransfer(address from, address to, uint value) external;
+
+    /**
+     * Emit Approval event from upgraded contract.
+     *
+     * Should only be callable from upgraded contract.
+     */
+    function emitApproval(address owner, address spender, uint value) external;
+}
+
+/**
+ * A upgradeable ERC20 token contract.
+ *
+ * Based on Tether USD (USDT) contract.
+ */
 contract Token is
     Deprecateable,
+    LegacyToken,
     Pausable,
     ExtendedToken,
     BlackList,
@@ -414,7 +470,12 @@ contract Token is
     function transfer(
         address _to,
         uint _value
-    ) public override(BasicToken, ERC20Basic) whenNotPaused whenNotBlackListed(msg.sender) {
+    )
+        public
+        override(BasicToken, ERC20Basic)
+        whenNotPaused
+        whenNotBlackListed(msg.sender)
+    {
         if (deprecated) {
             return
                 UpgradedStandardToken(upgradedAddress).transferByLegacy(
@@ -432,7 +493,12 @@ contract Token is
         address _from,
         address _to,
         uint _value
-    ) public override(ERC20, StandardToken) whenNotPaused whenNotBlackListed(_from) {
+    )
+        public
+        override(ERC20, StandardToken)
+        whenNotPaused
+        whenNotBlackListed(_from)
+    {
         if (deprecated) {
             return
                 UpgradedStandardToken(upgradedAddress).transferFromByLegacy(
@@ -512,17 +578,32 @@ contract Token is
         }
     }
 
-    /**
-     * Emit transfer event from upgraded version of the contract.
-     */
-    function emitTransfer(address from, address to, uint value) public onlyUpgraded {
+    function legacyBalance(
+        address addr
+    ) external view onlyUpgraded returns (uint balance) {
+        balance = balances[addr];
+    }
+
+    function legacyAllowance(
+        address from,
+        address to
+    ) external view onlyUpgraded returns (uint remaining) {
+        remaining = allowed[from][to];
+    }
+
+    function emitTransfer(
+        address from,
+        address to,
+        uint value
+    ) public onlyUpgraded {
         emit Transfer(from, to, value);
     }
 
-    /**
-     * Emit approval event from upgraded version of the contract.
-     */
-    function emitApproval(address owner, address spender, uint value) public onlyUpgraded {
+    function emitApproval(
+        address owner,
+        address spender,
+        uint value
+    ) public onlyUpgraded {
         emit Approval(owner, spender, value);
     }
 
@@ -532,7 +613,7 @@ contract Token is
      * @param amount Number of tokens to be issued
      * @param to Address to send tokens to
      */
-    function issue(uint amount, address to) public onlyOwner {
+    function issue(uint amount, address to) public onlyOwner whenNotDeprecated {
         require(_totalSupply + amount > _totalSupply);
         require(balances[to] + amount > balances[to]);
 
@@ -548,7 +629,7 @@ contract Token is
      *
      * @param amount Number of tokens to be redeemed
      */
-    function redeem(uint amount) public onlyOwner {
+    function redeem(uint amount) public onlyOwner whenNotDeprecated {
         _totalSupply = _totalSupply.sub(amount);
         balances[owner] = balances[owner].sub(amount);
         emit Redeem(amount);

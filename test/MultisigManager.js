@@ -257,6 +257,22 @@ describe("Token with MultisigManager", () => {
     });
   });
 
+  describe("requestOwnerChange+approveOwnerChange", () => {
+    it("should change token owner address", async () => {
+      const {
+        multisigManager,
+        token,
+        voters,
+        accounts: [a1],
+      } = await loadFixture(deployTokenWithMultisigManager);
+
+      await multisigManager.connect(voters[0]).requestOwnerChange(token, a1);
+      await multisigManager.connect(voters[1]).approveOwnerChange(await getLastRequestId(multisigManager, 'OwnerChangeRequested'));
+
+      await expect(token.connect(a1).pause()).to.not.be.reverted;
+    });
+  });
+
   describe("requestPause+approvePause+requestUnpause+approveUnpause", () => {
     it("should pause and unpause the token", async () => {
       const {
