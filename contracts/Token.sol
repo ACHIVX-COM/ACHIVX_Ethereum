@@ -275,7 +275,7 @@ abstract contract Pausable is Ownable, IPausable {
     /**
      * @dev called by the owner to pause, triggers stopped state
      */
-    function pause() public onlyOwner whenNotPaused {
+    function pause() external onlyOwner whenNotPaused {
         paused = true;
         emit Pause();
     }
@@ -283,7 +283,7 @@ abstract contract Pausable is Ownable, IPausable {
     /**
      * @dev called by the owner to unpause, returns to normal state
      */
-    function unpause() public onlyOwner whenPaused {
+    function unpause() external onlyOwner whenPaused {
         paused = false;
         emit Unpause();
     }
@@ -302,17 +302,17 @@ abstract contract BlackList is Ownable, BasicToken, IBlackList {
         _;
     }
 
-    function addBlackList(address _evilUser) public onlyOwner {
+    function addBlackList(address _evilUser) external onlyOwner {
         isBlackListed[_evilUser] = true;
         emit AddedBlackList(_evilUser);
     }
 
-    function removeBlackList(address _clearedUser) public onlyOwner {
+    function removeBlackList(address _clearedUser) external onlyOwner {
         isBlackListed[_clearedUser] = false;
         emit RemovedBlackList(_clearedUser);
     }
 
-    function destroyBlackFunds(address _blackListedUser) public onlyOwner {
+    function destroyBlackFunds(address _blackListedUser) external onlyOwner {
         require(isBlackListed[_blackListedUser], "account not blacklisted");
         uint dirtyFunds = balanceOf(_blackListedUser);
         balances[_blackListedUser] = 0;
@@ -363,7 +363,7 @@ abstract contract Deprecateable is Ownable, IDeprecatable {
     /**
      * Deprecate current contract in favour of a new one.
      */
-    function deprecate(address _upgradedAddress) public onlyOwner {
+    function deprecate(address _upgradedAddress) external onlyOwner {
         deprecated = true;
         upgradedAddress = _upgradedAddress;
         emit Deprecate(_upgradedAddress);
@@ -595,7 +595,7 @@ contract Token is
         address from,
         address to,
         uint value
-    ) public onlyUpgraded {
+    ) external onlyUpgraded {
         emit Transfer(from, to, value);
     }
 
@@ -603,7 +603,7 @@ contract Token is
         address owner,
         address spender,
         uint value
-    ) public onlyUpgraded {
+    ) external onlyUpgraded {
         emit Approval(owner, spender, value);
     }
 
@@ -613,7 +613,7 @@ contract Token is
      * @param amount Number of tokens to be issued
      * @param to Address to send tokens to
      */
-    function issue(uint amount, address to) public onlyOwner whenNotDeprecated {
+    function issue(uint amount, address to) external onlyOwner whenNotDeprecated {
         require(_totalSupply + amount > _totalSupply);
         require(balances[to] + amount > balances[to]);
 
@@ -629,7 +629,7 @@ contract Token is
      *
      * @param amount Number of tokens to be redeemed
      */
-    function redeem(uint amount) public onlyOwner whenNotDeprecated {
+    function redeem(uint amount) external onlyOwner whenNotDeprecated {
         _totalSupply = _totalSupply.sub(amount);
         balances[owner] = balances[owner].sub(amount);
         emit Redeem(amount);

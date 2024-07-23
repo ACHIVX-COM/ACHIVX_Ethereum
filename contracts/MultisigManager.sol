@@ -5,27 +5,33 @@ import "./ManagedToken.sol";
 
 contract MultisigManager {
     // region voting accounts management internal
-    uint constant MIN_VOTING_ACCOUNTS = 3;
+    uint public constant MIN_VOTING_ACCOUNTS = 3;
 
-    mapping(address => bool) votingAccounts;
-    uint votingAccountsNumber;
-    uint votingAccountsListGeneration;
+    mapping(address => bool) public isVotingAccount;
+    uint public votingAccountsNumber;
+    uint private votingAccountsListGeneration;
+
+    event VoterAdded(address);
+    event VoterRemoved(address);
 
     function _addVotingAccount(address _addr) private {
-        if (!votingAccounts[_addr]) {
-            votingAccounts[_addr] = true;
+        if (!isVotingAccount[_addr]) {
+            assert(votingAccountsNumber < type(uint).max);
+            isVotingAccount[_addr] = true;
             votingAccountsNumber += 1;
+            emit VoterAdded(_addr);
         }
     }
 
     function _removeVotingAccount(address _addr) private {
-        if (votingAccounts[_addr]) {
+        if (isVotingAccount[_addr]) {
             require(
                 votingAccountsNumber - 1 >= MIN_VOTING_ACCOUNTS,
                 "not enough voting accounts will remain"
             );
-            votingAccounts[_addr] = false;
+            isVotingAccount[_addr] = false;
             votingAccountsNumber -= 1;
+            emit VoterRemoved(_addr);
         }
     }
     // endregion
@@ -38,25 +44,26 @@ contract MultisigManager {
         uint generation;
     }
 
-    mapping(bytes32 => Request) requests;
-    uint requestCount = 0;
+    mapping(bytes32 => Request) private requests;
+    uint private requestCount = 0;
 
     function _makeRequest() private returns (bytes32 reqId) {
-        require(votingAccounts[msg.sender], "not a voting account");
+        require(isVotingAccount[msg.sender], "not a voting account");
         reqId = keccak256(
             abi.encode(
                 requestCount++,
-                blockhash(block.number - 1),
+                blockhash(block.number - 1), // TODO: Change to something more(or less) random?
                 address(this)
             )
         );
+        assert(requests[reqId].approvals == 0); // Check for request id collision
         requests[reqId].approvedBy[msg.sender] = true;
         requests[reqId].approvals = 1;
         requests[reqId].generation = votingAccountsListGeneration;
     }
 
     function _approveRequest(bytes32 reqId) private returns (bool approved) {
-        require(votingAccounts[msg.sender], "not a voting account");
+        require(isVotingAccount[msg.sender], "not a voting account");
 
         Request storage req = requests[reqId];
 
@@ -106,7 +113,7 @@ contract MultisigManager {
         address newOwner;
     }
 
-    mapping(bytes32 => OwnerChangeRequest) ownerChangeRequests;
+    mapping(bytes32 => OwnerChangeRequest) private ownerChangeRequests;
     event OwnerChangeRequested(
         bytes32 reqId,
         address by,
@@ -143,7 +150,7 @@ contract MultisigManager {
         address[] addVoters;
         address[] removeVoters;
     }
-    mapping(bytes32 => VotersChangeRequest) votersChangeRequests;
+    mapping(bytes32 => VotersChangeRequest) private votersChangeRequests;
     event VotersListChangeRequested(
         bytes32 reqId,
         address by,
@@ -192,7 +199,7 @@ contract MultisigManager {
     // endregion
 
     // region pause
-    mapping(bytes32 => ManagedToken) pauseRequests;
+    mapping(bytes32 => ManagedToken) private pauseRequests;
     event PauseRequested(bytes32 reqId, address by, address token);
 
     function requestTokenPause(
@@ -217,7 +224,7 @@ contract MultisigManager {
     // endregion
 
     // region unpause
-    mapping(bytes32 => ManagedToken) unpauseRequests;
+    mapping(bytes32 => ManagedToken) private unpauseRequests;
     event UnpauseRequested(bytes32 reqId, address by, address token);
 
     function requestTokenUnpause(
@@ -246,7 +253,7 @@ contract MultisigManager {
         ManagedToken token;
         address account;
     }
-    mapping(bytes32 => BlacklistRequest) blacklistRequests;
+    mapping(bytes32 => BlacklistRequest) private blacklistRequests;
     event BlacklistRequested(
         bytes32 reqId,
         address by,
@@ -280,7 +287,7 @@ contract MultisigManager {
     // endregion
 
     // region unblacklist address
-    mapping(bytes32 => BlacklistRequest) unblacklistRequests;
+    mapping(bytes32 => BlacklistRequest) private unblacklistRequests;
     event UnblacklistRequested(
         bytes32 reqId,
         address by,
@@ -314,7 +321,7 @@ contract MultisigManager {
     // endregion
 
     // region destroy black funds
-    mapping(bytes32 => BlacklistRequest) blackFundsDestroyRequests;
+    mapping(bytes32 => BlacklistRequest) private blackFundsDestroyRequests;
     event BlackFundsDestructionRequested(
         bytes32 reqId,
         address by,
@@ -357,7 +364,7 @@ contract MultisigManager {
         ManagedToken token;
         address upgradedToken;
     }
-    mapping(bytes32 => DeprecationRequest) deprecationRequests;
+    mapping(bytes32 => DeprecationRequest) private deprecationRequests;
     event DeprecationRequested(
         bytes32 reqId,
         address by,
@@ -398,7 +405,7 @@ contract MultisigManager {
         address to;
         uint amount;
     }
-    mapping(bytes32 => TokenIssueRequest) issueRequests;
+    mapping(bytes32 => TokenIssueRequest) private issueRequests;
     event IssueRequested(
         bytes32 reqId,
         address by,
@@ -442,7 +449,7 @@ contract MultisigManager {
         ManagedToken token;
         uint amount;
     }
-    mapping(bytes32 => RedeemRequest) redeemRequests;
+    mapping(bytes32 => RedeemRequest) private redeemRequests;
     event RedeemRequested(
         bytes32 reqId,
         address by,
