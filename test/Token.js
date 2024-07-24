@@ -242,4 +242,21 @@ describe("Token", () => {
       expect(await token.totalSupply()).to.be.equal(900);
     });
   });
+
+  describe("supportsInterface", () => {
+    it("should support ERC165", async () => {
+      const { token } = await loadFixture(deployToken);
+
+      // Standard procedure to check for ERC165 support (https://eips.ethereum.org/EIPS/eip-165)
+      expect(await token.supportsInterface("0x01ffc9a7")).to.be.true;
+      expect(await token.supportsInterface("0xffffffff")).to.be.false;
+    });
+
+    it("should support ERC20 and ERC173", async () => {
+      const { token } = await loadFixture(deployToken);
+
+      expect(await token.supportsInterface("0x7f5828d0")).to.be.true;
+      expect(await token.supportsInterface("0x36372b07")).to.be.true;
+    });
+  });
 });

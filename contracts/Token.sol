@@ -41,7 +41,7 @@ library SafeMath {
  * @dev The Ownable contract has an owner address, and provides basic authorization control
  * functions, this simplifies the implementation of "user permissions".
  */
-abstract contract Ownable is IOwnable {
+abstract contract Ownable is ERC173 {
     address public owner;
 
     /**
@@ -60,14 +60,9 @@ abstract contract Ownable is IOwnable {
         _;
     }
 
-    /**
-     * @dev Allows the current owner to transfer control of the contract to a newOwner.
-     * @param newOwner The address to transfer ownership to.
-     */
-    function transferOwnership(address newOwner) public override onlyOwner {
-        if (newOwner != address(0)) {
-            owner = newOwner;
-        }
+    function transferOwnership(address newOwner) external override onlyOwner {
+        owner = newOwner;
+        emit OwnershipTransferred(msg.sender, newOwner);
     }
 }
 
@@ -157,7 +152,6 @@ abstract contract BasicToken is Ownable, ERC20Basic {
  *
  * @dev Implementation of the basic standard token.
  * @dev https://github.com/ethereum/EIPs/issues/20
- * @dev Based oncode by FirstBlood: https://github.com/Firstbloodio/token/blob/master/smart_contract/FirstBloodToken.sol
  */
 abstract contract StandardToken is BasicToken, ERC20 {
     using SafeMath for uint;
@@ -197,7 +191,7 @@ abstract contract StandardToken is BasicToken, ERC20 {
         //  allowance to zero by calling `approve(_spender, 0)` if it is not
         //  already 0 to mitigate the race condition described here:
         //  https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-        require(!((_value != 0) && (allowed[msg.sender][_spender] != 0)));
+        require(_value == 0 || allowed[msg.sender][_spender] == 0);
 
         allowed[msg.sender][_spender] = _value;
         emit Approval(msg.sender, _spender, _value);
@@ -217,9 +211,18 @@ abstract contract StandardToken is BasicToken, ERC20 {
     }
 }
 
+/**
+ * @title Extended ERC20 token implementation mixin
+ * @dev Implements a batch transfer method
+ */
 abstract contract ExtendedToken is StandardToken, ERC20Extended {
     using SafeMath for uint;
 
+    /**
+     * @notice transfer tokens to multiple addresses
+     * @param _tos addresses to transfer tokens to
+     * @param _values amounts of tokens to transfer to each address
+     */
     function batchTransfer(
         address[] calldata _tos,
         uint[] calldata _values
@@ -289,29 +292,50 @@ abstract contract Pausable is Ownable, IPausable {
     }
 }
 
+/**
+ * @title Token with account blacklist mixin
+ * @notice Maintains a blacklist of addresses.
+ * Blacklist can be modified by contract owner.
+ * Tokens owned by blacklisted addresses can be burned by contract owner.
+ */
 abstract contract BlackList is Ownable, BasicToken, IBlackList {
-    /////// Getters to allow the same blacklist to be used also by other contracts ///////
-    function getBlackListStatus(address _maker) external view returns (bool) {
-        return isBlackListed[_maker];
-    }
-
     mapping(address => bool) public isBlackListed;
 
+    /**
+     * Requires a given address to not be blacklisted
+     *
+     * @param account the address to check
+     */
     modifier whenNotBlackListed(address account) {
         require(!isBlackListed[account], "account blacklisted");
         _;
     }
 
+    /**
+     * Add given address to blacklist.
+     *
+     * @param _evilUser the address to add to blacklist
+     */
     function addBlackList(address _evilUser) external onlyOwner {
         isBlackListed[_evilUser] = true;
         emit AddedBlackList(_evilUser);
     }
 
+    /**
+     * Remove given address from blacklist.
+     *
+     * @param _clearedUser the address to remove from blacklist
+     */
     function removeBlackList(address _clearedUser) external onlyOwner {
         isBlackListed[_clearedUser] = false;
         emit RemovedBlackList(_clearedUser);
     }
 
+    /**
+     * Destroy tokens owned by a blacklisted account.
+     *
+     * @param _blackListedUser the blacklisted address
+     */
     function destroyBlackFunds(address _blackListedUser) external onlyOwner {
         require(isBlackListed[_blackListedUser], "account not blacklisted");
         uint dirtyFunds = balanceOf(_blackListedUser);
@@ -320,10 +344,23 @@ abstract contract BlackList is Ownable, BasicToken, IBlackList {
         emit DestroyedBlackFunds(_blackListedUser, dirtyFunds);
     }
 
+    /**
+     * Emitted when tokens owned by a blacklisted address are destroyed.
+     * @param _blackListedUser the blacklisted account
+     * @param _balance amount of tokens previously owned by the account
+     */
     event DestroyedBlackFunds(address _blackListedUser, uint _balance);
 
+    /**
+     * Emitted when an address is added to the blacklist
+     * @param _user the address added to the blacklist
+     */
     event AddedBlackList(address _user);
 
+    /**
+     * Emitted when an address is removed from blacklist
+     * @param _user the address removed from the blacklist
+     */
     event RemovedBlackList(address _user);
 }
 
@@ -349,6 +386,11 @@ interface UpgradedStandardToken is ERC20 {
     ) external;
 }
 
+/**
+ * @title Deprecatable/upgradable contract mixin
+ * @dev Contract owner may declare this contract deprecated and set an address of the new implementation.
+ * It's responsibility of concrete contract to delegate method calls to the new implementation.
+ */
 abstract contract Deprecateable is Ownable, IDeprecatable {
     address public upgradedAddress;
     bool public deprecated;
@@ -362,6 +404,8 @@ abstract contract Deprecateable is Ownable, IDeprecatable {
 
     /**
      * Deprecate current contract in favour of a new one.
+     *
+     * @param _upgradedAddress address of the new implementation of the contract
      */
     function deprecate(address _upgradedAddress) external onlyOwner {
         deprecated = true;
@@ -388,22 +432,26 @@ abstract contract Deprecateable is Ownable, IDeprecatable {
 }
 
 /**
- * Methods of deprecatable ERC20 token that can be used by it's upgraded version.
+ * @title A deprecatable ERC20 token interface
+ * @dev Contains methods of deprecatable ERC20 token that can be used by it's upgraded version.
  */
 interface LegacyToken is ERC20, IDeprecatable {
     /**
-     * Read balance of given account before contract deprecation.
-     *
-     * The balanceOf method is expected to be delegated to the upgraded contract, so a separate method is
+     * @notice Read balance of given account before contract deprecation.
+     * @dev The balanceOf method is expected to be delegated to the upgraded contract, so a separate method is
      * necessary to let the upgraded contract fetch initial balances of accounts.
+     * @param addr the address
+     * @return balance balance of the address before contract upgrade
      */
     function legacyBalance(address addr) external view returns (uint balance);
 
     /**
-     * Read allowance from before the contract was deprecated.
-     *
-     * The allowance() method is expected to be delegated to the upgraded contract, so a separate method is
+     * @notice Read allowance from before the contract was deprecated.
+     * @dev The allowance() method is expected to be delegated to the upgraded contract, so a separate method is
      * necessary to let the upgraded contract fetch initial allowances.
+     * @param from address to spend tokens from
+     * @param to address that is allowed to spend tokens
+     * @return remaining remaining allowance
      */
     function legacyAllowance(
         address from,
@@ -411,25 +459,28 @@ interface LegacyToken is ERC20, IDeprecatable {
     ) external view returns (uint remaining);
 
     /**
-     * Emit Transfer event from upgraded contract.
-     *
-     * Should only be callable by the upgraded contract.
-     * Makes transfers performed through the upgraded contract be reflected in the legacy contract.
+     * @notice Emit Transfer event from upgrade contract.
+     * @dev Should only be callable by the upgrade contract.
+     * Makes transfers performed through the upgrade contract be reflected in the legacy contract.
+     * @param from the address tokens were transferred from
+     * @param to the address tokens were sent to
+     * @param value amount of tokens transferred
      */
     function emitTransfer(address from, address to, uint value) external;
 
     /**
-     * Emit Approval event from upgraded contract.
-     *
-     * Should only be callable from upgraded contract.
+     * @notice Emit Approval event from upgrade contract.
+     * @dev Should only be callable from upgrade contract.
+     * @param owner owner of the wallet
+     * @param spender the address allowed to spend tokens
+     * @param value new allowance value
      */
     function emitApproval(address owner, address spender, uint value) external;
 }
 
 /**
- * A upgradeable ERC20 token contract.
- *
- * Based on Tether USD (USDT) contract.
+ * @title An upgradeable ERC20 token contract.
+ * @notice Based on Tether USD (USDT) contract.
  */
 contract Token is
     Deprecateable,
@@ -464,6 +515,15 @@ contract Token is
         name = _name;
         symbol = _symbol;
         decimals = _decimals;
+    }
+
+    function supportsInterface(
+        bytes4 interfaceID
+    ) external pure returns (bool) {
+        return
+            (interfaceID == 0x01ffc9a7) || // ERC165
+            (interfaceID == 0x7f5828d0) || // ERC173
+            (interfaceID == 0x36372b07); // ERC20
     }
 
     // Forward ERC20 methods to upgraded contract if this one is deprecated
@@ -613,7 +673,10 @@ contract Token is
      * @param amount Number of tokens to be issued
      * @param to Address to send tokens to
      */
-    function issue(uint amount, address to) external onlyOwner whenNotDeprecated {
+    function issue(
+        uint amount,
+        address to
+    ) external onlyOwner whenNotDeprecated {
         require(_totalSupply + amount > _totalSupply);
         require(balances[to] + amount > balances[to]);
 
