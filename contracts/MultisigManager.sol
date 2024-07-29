@@ -85,10 +85,13 @@ contract MultisigManager {
     /**
      * @dev Emitted when a request gets executed after getting enough approvals
      */
-    event RequestCompleted(indexed bytes32 reqId);
+    event RequestCompleted(bytes32 indexed reqId);
 
     /**
      * @dev Create a request and approve it from the sender of current transaction.
+     * @dev The returned request identifier is a pseudo-random number based on request index and previous block hash.
+     * That makes request ids unpredictable enough to make it difficult enough to create (accidentally or maliciously)
+     * a confirmation transaction before the request is created.
      * @return reqId identifier of the created request; it can be used later to call `_approveRequest`
      */
     function _makeRequest() private returns (bytes32 reqId) {
@@ -96,8 +99,7 @@ contract MultisigManager {
         reqId = keccak256(
             abi.encode(
                 requestCount++,
-                blockhash(block.number - 1), // TODO: Change to something more(or less) random?
-                address(this)
+                blockhash(block.number - 1)
             )
         );
         assert(requests[reqId].approvals == 0); // Check for request id collision
