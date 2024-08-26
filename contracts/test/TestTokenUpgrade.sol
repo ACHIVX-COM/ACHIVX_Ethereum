@@ -13,32 +13,36 @@ contract TestTokenUpgrade is TokenUpgrade {
 
     constructor(LegacyToken _legacy) TokenUpgrade(_legacy) {}
 
-    function transfer(address to, uint value) external {
+    function transfer(address to, uint value) external returns (bool success) {
         _setBalance(msg.sender, balanceOf(msg.sender).sub(value));
         _setBalance(to, balanceOf(to).add(value));
         _emitTransfer(msg.sender, to, value);
+        success = true;
     }
 
-    function transferFrom(address from, address to, uint value) external {
+    function transferFrom(address from, address to, uint value) external returns (bool success){
         _setAllowance(from, to, allowance(from, msg.sender).sub(value));
         _setBalance(from, balanceOf(from).sub(value));
         _setBalance(to, balanceOf(to).add(value));
         _emitTransfer(from, to, value);
+        success = true;
     }
 
-    function approve(address spender, uint value) external {
+    function approve(address spender, uint value) external returns (bool success){
         _setAllowance(msg.sender, spender, value);
         _emitApproval(msg.sender, spender, value);
+        success = true;
     }
 
     function transferByLegacy(
         address from,
         address to,
         uint value
-    ) external legacyOnly {
+    ) external legacyOnly returns (bool success) {
         _setBalance(from, balanceOf(from).sub(value));
         _setBalance(to, balanceOf(to).add(value));
         _emitTransfer(from, to, value);
+        success = true;
     }
 
     function transferFromByLegacy(
@@ -46,20 +50,22 @@ contract TestTokenUpgrade is TokenUpgrade {
         address from,
         address to,
         uint value
-    ) external legacyOnly {
+    ) external legacyOnly returns (bool success) {
         _setAllowance(from, sender, allowance(from, sender).sub(value));
         _setBalance(from, balanceOf(from).sub(value));
         _setBalance(to, balanceOf(to).add(value));
         _emitTransfer(from, to, value);
+        success = true;
     }
 
     function approveByLegacy(
         address from,
         address spender,
         uint value
-    ) external legacyOnly {
+    ) external legacyOnly returns (bool success) {
         _setAllowance(from, spender, value);
         _emitApproval(from, spender, value);
+        success = true;
     }
 
     function batchTransferByLegacy(

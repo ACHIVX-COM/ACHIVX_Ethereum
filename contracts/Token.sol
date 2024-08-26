@@ -74,7 +74,7 @@ abstract contract Ownable is ERC173 {
 interface ERC20Basic {
     function totalSupply() external view returns (uint);
     function balanceOf(address who) external view returns (uint);
-    function transfer(address to, uint value) external;
+    function transfer(address to, uint value) external returns (bool success);
     event Transfer(address indexed from, address indexed to, uint value);
 }
 
@@ -87,8 +87,15 @@ interface ERC20 is ERC20Basic {
         address owner,
         address spender
     ) external view returns (uint);
-    function transferFrom(address from, address to, uint value) external;
-    function approve(address spender, uint value) external;
+    function transferFrom(
+        address from,
+        address to,
+        uint value
+    ) external returns (bool success);
+    function approve(
+        address spender,
+        uint value
+    ) external returns (bool success);
     event Approval(address indexed owner, address indexed spender, uint value);
 }
 
@@ -129,10 +136,14 @@ abstract contract BasicToken is Ownable, ERC20Basic {
      * @param _to The address to transfer to.
      * @param _value The amount to be transferred.
      */
-    function transfer(address _to, uint _value) public virtual override {
+    function transfer(
+        address _to,
+        uint _value
+    ) public virtual override returns (bool success) {
         balances[msg.sender] = balances[msg.sender].sub(_value);
         balances[_to] = balances[_to].add(_value);
         emit Transfer(msg.sender, _to, _value);
+        success = true;
     }
 
     /**
@@ -170,7 +181,7 @@ abstract contract StandardToken is BasicToken, ERC20 {
         address _from,
         address _to,
         uint _value
-    ) public virtual override {
+    ) public virtual override returns (bool success) {
         uint _allowance = allowed[_from][msg.sender];
 
         if (_allowance < MAX_UINT) {
@@ -179,6 +190,7 @@ abstract contract StandardToken is BasicToken, ERC20 {
         balances[_from] = balances[_from].sub(_value);
         balances[_to] = balances[_to].add(_value);
         emit Transfer(_from, _to, _value);
+        success = true;
     }
 
     /**
@@ -186,7 +198,10 @@ abstract contract StandardToken is BasicToken, ERC20 {
      * @param _spender The address which will spend the funds.
      * @param _value The amount of tokens to be spent.
      */
-    function approve(address _spender, uint _value) public virtual override {
+    function approve(
+        address _spender,
+        uint _value
+    ) public virtual override returns (bool success) {
         // To change the approve amount you first have to reduce the addresses`
         //  allowance to zero by calling `approve(_spender, 0)` if it is not
         //  already 0 to mitigate the race condition described here:
@@ -195,6 +210,7 @@ abstract contract StandardToken is BasicToken, ERC20 {
 
         allowed[msg.sender][_spender] = _value;
         emit Approval(msg.sender, _spender, _value);
+        success = true;
     }
 
     /**
@@ -346,7 +362,11 @@ interface UpgradedStandardToken is ERC20 {
      * @param to address to transfer tokens to
      * @param value amount of tokens to transfer
      */
-    function transferByLegacy(address from, address to, uint value) external;
+    function transferByLegacy(
+        address from,
+        address to,
+        uint value
+    ) external returns (bool success);
 
     /**
      * @notice Method called by legacy contract when its `transferFrom` method is called
@@ -360,7 +380,7 @@ interface UpgradedStandardToken is ERC20 {
         address from,
         address to,
         uint value
-    ) external;
+    ) external returns (bool success);
 
     /**
      * @notice Method called by legacy contract when its `approve` method is called
@@ -372,7 +392,7 @@ interface UpgradedStandardToken is ERC20 {
         address from,
         address spender,
         uint value
-    ) external;
+    ) external returns (bool success);
 
     /**
      * @notice Method called by legacy contract when its `batchTransfer` extension method is called
@@ -540,6 +560,7 @@ contract Token is
         override(BasicToken, ERC20Basic)
         whenNotPaused
         whenNotBlackListed(msg.sender)
+        returns (bool success)
     {
         if (deprecated) {
             return
@@ -565,6 +586,7 @@ contract Token is
         override(ERC20, StandardToken)
         whenNotPaused
         whenNotBlackListed(_from)
+        returns (bool success)
     {
         if (deprecated) {
             return
@@ -598,7 +620,7 @@ contract Token is
     function approve(
         address _spender,
         uint _value
-    ) public override(ERC20, StandardToken) {
+    ) public override(ERC20, StandardToken) returns (bool success) {
         if (deprecated) {
             return
                 UpgradedStandardToken(upgradedAddress).approveByLegacy(
