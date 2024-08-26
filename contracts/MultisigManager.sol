@@ -111,7 +111,7 @@ contract MultisigManager {
      * a confirmation transaction before the request is created.
      * @return reqId identifier of the created request; it can be used later to call `_approveRequest`
      */
-    function _makeRequest() private returns (bytes32 reqId) {
+    function _makeRequest() private votingAccountOnly returns (bytes32 reqId) {
         require(isVotingAccount[msg.sender], "not a voting account");
         reqId = keccak256(
             abi.encode(requestCount++, blockhash(block.number - 1))
@@ -127,9 +127,7 @@ contract MultisigManager {
      * @return approved `true` iff the approval is successful and is the last approval necessary to execute the request;
      * the caller is expected to execute the request immediately in such case.
      */
-    function _approveRequest(bytes32 reqId) private returns (bool approved) {
-        require(isVotingAccount[msg.sender], "not a voting account");
-
+    function _approveRequest(bytes32 reqId) private votingAccountOnly returns (bool approved) {
         Request storage req = requests[reqId];
 
         require(req.approvals > 0, "invalid request id");
@@ -163,6 +161,11 @@ contract MultisigManager {
 
     modifier whenTokenAddressValid(ManagedToken token) {
         require(address(token) != address(0), "token address cannot be zero");
+        _;
+    }
+
+    modifier votingAccountOnly() {
+        require(isVotingAccount[msg.sender], "not a voting account");
         _;
     }
     // endregion
