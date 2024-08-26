@@ -160,6 +160,11 @@ contract MultisigManager {
     function getMinApprovals() public view returns (uint approvals) {
         approvals = (votingAccountsNumber >> 1) + 1;
     }
+
+    modifier whenTokenAddressValid(ManagedToken token) {
+        require(address(token) != address(0), "token address cannot be zero");
+        _;
+    }
     // endregion
 
     // region constructor
@@ -210,7 +215,7 @@ contract MultisigManager {
     function requestOwnerChange(
         ManagedToken token,
         address newOwner
-    ) external returns (bytes32 reqId) {
+    ) external whenTokenAddressValid(token) returns (bytes32 reqId) {
         reqId = _makeRequest();
         ownerChangeRequests[reqId].token = token;
         ownerChangeRequests[reqId].newOwner = newOwner;
@@ -329,8 +334,7 @@ contract MultisigManager {
      */
     function requestTokenPause(
         ManagedToken token
-    ) external returns (bytes32 reqId) {
-        require(address(token) != address(0));
+    ) external whenTokenAddressValid(token) returns (bytes32 reqId) {
         reqId = _makeRequest();
         pauseRequests[reqId] = token;
         emit PauseRequested(reqId, msg.sender, address(token));
@@ -371,8 +375,7 @@ contract MultisigManager {
      */
     function requestTokenUnpause(
         ManagedToken token
-    ) external returns (bytes32 reqId) {
-        require(address(token) != address(0));
+    ) external whenTokenAddressValid(token) returns (bytes32 reqId) {
         reqId = _makeRequest();
         unpauseRequests[reqId] = token;
         emit UnpauseRequested(reqId, msg.sender, address(token));
@@ -425,8 +428,7 @@ contract MultisigManager {
     function requestBlacklist(
         ManagedToken token,
         address account
-    ) external returns (bytes32 reqId) {
-        require(address(token) != address(0));
+    ) external whenTokenAddressValid(token) returns (bytes32 reqId) {
         reqId = _makeRequest();
         blacklistRequests[reqId].token = token;
         blacklistRequests[reqId].account = account;
@@ -478,8 +480,7 @@ contract MultisigManager {
     function requestUnblacklist(
         ManagedToken token,
         address account
-    ) external returns (bytes32 reqId) {
-        require(address(token) != address(0));
+    ) external whenTokenAddressValid(token) returns (bytes32 reqId) {
         reqId = _makeRequest();
         unblacklistRequests[reqId].token = token;
         unblacklistRequests[reqId].account = account;
@@ -531,8 +532,7 @@ contract MultisigManager {
     function requestBlackFundsDestruction(
         ManagedToken token,
         address account
-    ) external returns (bytes32 reqId) {
-        require(address(token) != address(0));
+    ) external whenTokenAddressValid(token) returns (bytes32 reqId) {
         reqId = _makeRequest();
         blackFundsDestroyRequests[reqId].token = token;
         blackFundsDestroyRequests[reqId].account = account;
@@ -593,8 +593,7 @@ contract MultisigManager {
     function requestDeprecation(
         ManagedToken token,
         address upgraded
-    ) external returns (bytes32 reqId) {
-        require(address(token) != address(0));
+    ) external whenTokenAddressValid(token) returns (bytes32 reqId) {
         require(upgraded != address(0));
 
         reqId = _makeRequest();
@@ -657,8 +656,7 @@ contract MultisigManager {
         ManagedToken token,
         uint amount,
         address to
-    ) external returns (bytes32 reqId) {
-        require(address(token) != address(0));
+    ) external whenTokenAddressValid(token) returns (bytes32 reqId) {
         require(amount > 0);
 
         reqId = _makeRequest();
@@ -719,8 +717,7 @@ contract MultisigManager {
     function requestRedeem(
         ManagedToken token,
         uint amount
-    ) external returns (bytes32 reqId) {
-        require(address(token) != address(0));
+    ) external whenTokenAddressValid(token) returns (bytes32 reqId) {
         require(amount > 0);
 
         reqId = _makeRequest();
