@@ -130,6 +130,7 @@ abstract contract BasicToken is Ownable, ERC20Basic {
     constructor(uint initialSupply, address supplier) {
         _totalSupply = initialSupply;
         balances[supplier] = initialSupply;
+        emit Transfer(address(0), supplier, initialSupply);
     }
 
     /**
@@ -349,6 +350,7 @@ abstract contract BlackList is Ownable, BasicToken, IBlackList {
         balances[blackListedUser] = 0;
         _totalSupply -= dirtyFunds;
         emit DestroyedBlackFunds(blackListedUser, dirtyFunds);
+        emit Transfer(blackListedUser, address(0), dirtyFunds);
     }
 }
 
@@ -736,6 +738,7 @@ contract Token is
         balances[to] = balances[to].add(amount);
         _totalSupply = _totalSupply.add(amount);
         emit Issue(amount, to);
+        emit Transfer(address(0), to, amount);
     }
 
     /**
@@ -745,5 +748,6 @@ contract Token is
         _totalSupply = _totalSupply.sub(amount);
         balances[owner] = balances[owner].sub(amount);
         emit Redeem(amount);
+        emit Transfer(owner, address(0), amount);
     }
 }
