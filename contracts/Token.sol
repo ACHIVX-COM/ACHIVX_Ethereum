@@ -518,7 +518,7 @@ contract Token is
 
     string public name;
     string public symbol;
-    uint public decimals;
+    uint public immutable decimals;
 
     /**
      * @param owner Initial owner of the contract

@@ -20,10 +20,22 @@ import "./ManagedToken.sol";
  */
 contract MultisigManager {
     // region voting accounts management internal
+    /**
+     * @dev Minimal number of voting accounts.
+     * Attempts to initialize the contract with a number of voting accounts less than this one or to change list of voting accounts
+     * to such size will be reverted.
+     */
     uint public constant MIN_VOTING_ACCOUNTS = 3;
 
     mapping(address => bool) public isVotingAccount;
+
+    /**
+     * @dev Number of active voting accounts.
+     * List and number of voting accounts can be changed (see `requestVotersListChange`, `approveVotersListChange`)
+     * but their number never goes below `MIN_VOTING_ACCOUNTS`.
+     */
     uint public votingAccountsNumber;
+
     /**
      * @dev Version of voting accounts list.
      * This number is increased every time the owners list changes.
