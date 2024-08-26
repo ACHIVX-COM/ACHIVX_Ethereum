@@ -45,6 +45,11 @@ contract MultisigManager {
      * Does nothing if the address is already an owner.
      */
     function _addVotingAccount(address _addr) private {
+        require(
+            _addr != address(0),
+            "cannot add zero address to voting accounts list"
+        );
+
         if (!isVotingAccount[_addr]) {
             assert(votingAccountsNumber < type(uint).max);
             isVotingAccount[_addr] = true;
@@ -97,10 +102,7 @@ contract MultisigManager {
     function _makeRequest() private returns (bytes32 reqId) {
         require(isVotingAccount[msg.sender], "not a voting account");
         reqId = keccak256(
-            abi.encode(
-                requestCount++,
-                blockhash(block.number - 1)
-            )
+            abi.encode(requestCount++, blockhash(block.number - 1))
         );
         assert(requests[reqId].approvals == 0); // Check for request id collision
         requests[reqId].approvedBy[msg.sender] = true;

@@ -61,6 +61,7 @@ abstract contract Ownable is ERC173 {
     }
 
     function transferOwnership(address newOwner) external override onlyOwner {
+        require(newOwner != address(0), "new owner is zero");
         owner = newOwner;
         emit OwnershipTransferred(msg.sender, newOwner);
     }
@@ -427,6 +428,7 @@ abstract contract Deprecateable is Ownable, IDeprecatable {
      * @inheritdoc IDeprecatable
      */
     function deprecate(address _upgradedAddress) external onlyOwner {
+        require(_upgradedAddress != address(0), "upgrade contract address is zero");
         deprecated = true;
         upgradedAddress = _upgradedAddress;
         emit Deprecate(_upgradedAddress);
