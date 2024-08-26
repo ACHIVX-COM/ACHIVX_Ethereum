@@ -44,17 +44,17 @@ contract MultisigManager {
      * @dev Add an address to the list of owners.
      * Does nothing if the address is already an owner.
      */
-    function _addVotingAccount(address _addr) private {
+    function _addVotingAccount(address addr) private {
         require(
-            _addr != address(0),
+            addr != address(0),
             "cannot add zero address to voting accounts list"
         );
 
-        if (!isVotingAccount[_addr]) {
+        if (!isVotingAccount[addr]) {
             assert(votingAccountsNumber < type(uint).max);
-            isVotingAccount[_addr] = true;
+            isVotingAccount[addr] = true;
             votingAccountsNumber += 1;
-            emit VoterAdded(_addr);
+            emit VoterAdded(addr);
         }
     }
 
@@ -62,15 +62,15 @@ contract MultisigManager {
      * @dev Remove an address from the list of owners.
      * Does nothing if the address is not an owner.
      */
-    function _removeVotingAccount(address _addr) private {
-        if (isVotingAccount[_addr]) {
+    function _removeVotingAccount(address addr) private {
+        if (isVotingAccount[addr]) {
             require(
                 votingAccountsNumber - 1 >= MIN_VOTING_ACCOUNTS,
                 "not enough voting accounts will remain"
             );
-            isVotingAccount[_addr] = false;
+            isVotingAccount[addr] = false;
             votingAccountsNumber -= 1;
-            emit VoterRemoved(_addr);
+            emit VoterRemoved(addr);
         }
     }
     // endregion
@@ -152,11 +152,11 @@ contract MultisigManager {
 
     // region constructor
     /**
-     * @param _votingAccounts initial list of voting accounts/owners. Should contain at least `MIN_VOTING_ACCOUNTS` distinct addresses.
+     * @param votingAccounts initial list of voting accounts/owners. Should contain at least `MIN_VOTING_ACCOUNTS` distinct addresses.
      */
-    constructor(address[] memory _votingAccounts) {
-        for (uint i = 0; i < _votingAccounts.length; ++i) {
-            _addVotingAccount(_votingAccounts[i]);
+    constructor(address[] memory votingAccounts) {
+        for (uint i = 0; i < votingAccounts.length; ++i) {
+            _addVotingAccount(votingAccounts[i]);
         }
 
         require(

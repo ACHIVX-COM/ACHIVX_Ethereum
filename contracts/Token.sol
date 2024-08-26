@@ -45,11 +45,11 @@ abstract contract Ownable is ERC173 {
     address public owner;
 
     /**
-     * @param _initialOwner the initial owner of the contract
+     * @param initialOwner the initial owner of the contract
      */
-    constructor(address _initialOwner) {
-        require(_initialOwner != address(0), "owner is zero");
-        owner = _initialOwner;
+    constructor(address initialOwner) {
+        require(initialOwner != address(0), "owner is zero");
+        owner = initialOwner;
     }
 
     /**
@@ -123,39 +123,39 @@ interface ERC20Extended is ERC20 {
 abstract contract BasicToken is Ownable, ERC20Basic {
     using SafeMath for uint;
 
-    uint public _totalSupply;
+    uint internal _totalSupply;
 
     mapping(address => uint) public balances;
 
-    constructor(uint _initialSupply, address _supplier) {
-        _totalSupply = _initialSupply;
-        balances[_supplier] = _initialSupply;
+    constructor(uint initialSupply, address supplier) {
+        _totalSupply = initialSupply;
+        balances[supplier] = initialSupply;
     }
 
     /**
      * @dev transfer token for a specified address
-     * @param _to The address to transfer to.
-     * @param _value The amount to be transferred.
+     * @param to The address to transfer to.
+     * @param value The amount to be transferred.
      */
     function transfer(
-        address _to,
-        uint _value
+        address to,
+        uint value
     ) public virtual override returns (bool success) {
-        balances[msg.sender] = balances[msg.sender].sub(_value);
-        balances[_to] = balances[_to].add(_value);
-        emit Transfer(msg.sender, _to, _value);
+        balances[msg.sender] = balances[msg.sender].sub(value);
+        balances[to] = balances[to].add(value);
+        emit Transfer(msg.sender, to, value);
         success = true;
     }
 
     /**
      * @dev Gets the balance of the specified address.
-     * @param _owner The address to query the the balance of.
+     * @param owner The address to query the the balance of.
      * @return balance An uint representing the amount owned by the passed address.
      */
     function balanceOf(
-        address _owner
+        address owner
     ) public view virtual override returns (uint balance) {
-        return balances[_owner];
+        return balances[owner];
     }
 }
 
@@ -174,57 +174,57 @@ abstract contract StandardToken is BasicToken, ERC20 {
 
     /**
      * @dev Transfer tokens from one address to another
-     * @param _from address The address which you want to send tokens from
-     * @param _to address The address which you want to transfer to
-     * @param _value uint the amount of tokens to be transferred
+     * @param from address The address which you want to send tokens from
+     * @param to address The address which you want to transfer to
+     * @param value uint the amount of tokens to be transferred
      */
     function transferFrom(
-        address _from,
-        address _to,
-        uint _value
+        address from,
+        address to,
+        uint value
     ) public virtual override returns (bool success) {
-        uint _allowance = allowed[_from][msg.sender];
+        uint allowance_ = allowed[from][msg.sender];
 
-        if (_allowance < MAX_UINT) {
-            allowed[_from][msg.sender] = _allowance.sub(_value);
+        if (allowance_ < MAX_UINT) {
+            allowed[from][msg.sender] = allowance_.sub(value);
         }
-        balances[_from] = balances[_from].sub(_value);
-        balances[_to] = balances[_to].add(_value);
-        emit Transfer(_from, _to, _value);
+        balances[from] = balances[from].sub(value);
+        balances[to] = balances[to].add(value);
+        emit Transfer(from, to, value);
         success = true;
     }
 
     /**
      * @dev Approve the passed address to spend the specified amount of tokens on behalf of msg.sender.
-     * @param _spender The address which will spend the funds.
-     * @param _value The amount of tokens to be spent.
+     * @param spender The address which will spend the funds.
+     * @param value The amount of tokens to be spent.
      */
     function approve(
-        address _spender,
-        uint _value
+        address spender,
+        uint value
     ) public virtual override returns (bool success) {
         // To change the approve amount you first have to reduce the addresses`
-        //  allowance to zero by calling `approve(_spender, 0)` if it is not
+        //  allowance to zero by calling `approve(spender, 0)` if it is not
         //  already 0 to mitigate the race condition described here:
         //  https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-        require(_value == 0 || allowed[msg.sender][_spender] == 0);
+        require(value == 0 || allowed[msg.sender][spender] == 0);
 
-        allowed[msg.sender][_spender] = _value;
-        emit Approval(msg.sender, _spender, _value);
+        allowed[msg.sender][spender] = value;
+        emit Approval(msg.sender, spender, value);
         success = true;
     }
 
     /**
      * @dev Function to check the amount of tokens than an owner allowed to a spender.
-     * @param _owner address The address which owns the funds.
-     * @param _spender address The address which will spend the funds.
+     * @param owner address The address which owns the funds.
+     * @param spender address The address which will spend the funds.
      * @return remaining A uint specifying the amount of tokens still available for the spender.
      */
     function allowance(
-        address _owner,
-        address _spender
+        address owner,
+        address spender
     ) public view virtual override returns (uint remaining) {
-        return allowed[_owner][_spender];
+        return allowed[owner][spender];
     }
 }
 
@@ -237,20 +237,20 @@ abstract contract ExtendedToken is StandardToken, ERC20Extended {
 
     /**
      * @notice transfer tokens to multiple addresses
-     * @param _tos addresses to transfer tokens to
-     * @param _values amounts of tokens to transfer to each address
+     * @param tos addresses to transfer tokens to
+     * @param values amounts of tokens to transfer to each address
      */
     function batchTransfer(
-        address[] calldata _tos,
-        uint[] calldata _values
+        address[] calldata tos,
+        uint[] calldata values
     ) public virtual override {
-        require(_tos.length == _values.length);
+        require(tos.length == values.length);
         uint senderBalance = balances[msg.sender];
 
-        for (uint i = 0; i < _tos.length; ++i) {
-            address to = _tos[i];
+        for (uint i = 0; i < tos.length; ++i) {
+            address to = tos[i];
             require(to != address(0));
-            uint amount = _values[i];
+            uint amount = values[i];
             require(amount > 0);
             require(amount <= senderBalance);
 
@@ -327,28 +327,28 @@ abstract contract BlackList is Ownable, BasicToken, IBlackList {
     /**
      * @inheritdoc IBlackList
      */
-    function addBlackList(address _evilUser) external onlyOwner {
-        isBlackListed[_evilUser] = true;
-        emit AddedBlackList(_evilUser);
+    function addBlackList(address evilUser) external onlyOwner {
+        isBlackListed[evilUser] = true;
+        emit AddedBlackList(evilUser);
     }
 
     /**
      * @inheritdoc IBlackList
      */
-    function removeBlackList(address _clearedUser) external onlyOwner {
-        isBlackListed[_clearedUser] = false;
-        emit RemovedBlackList(_clearedUser);
+    function removeBlackList(address clearedUser) external onlyOwner {
+        isBlackListed[clearedUser] = false;
+        emit RemovedBlackList(clearedUser);
     }
 
     /**
      * @inheritdoc IBlackList
      */
-    function destroyBlackFunds(address _blackListedUser) external onlyOwner {
-        require(isBlackListed[_blackListedUser], "account not blacklisted");
-        uint dirtyFunds = balanceOf(_blackListedUser);
-        balances[_blackListedUser] = 0;
+    function destroyBlackFunds(address blackListedUser) external onlyOwner {
+        require(isBlackListed[blackListedUser], "account not blacklisted");
+        uint dirtyFunds = balanceOf(blackListedUser);
+        balances[blackListedUser] = 0;
         _totalSupply -= dirtyFunds;
-        emit DestroyedBlackFunds(_blackListedUser, dirtyFunds);
+        emit DestroyedBlackFunds(blackListedUser, dirtyFunds);
     }
 }
 
@@ -427,11 +427,14 @@ abstract contract Deprecateable is Ownable, IDeprecatable {
     /**
      * @inheritdoc IDeprecatable
      */
-    function deprecate(address _upgradedAddress) external onlyOwner {
-        require(_upgradedAddress != address(0), "upgrade contract address is zero");
+    function deprecate(address upgradedAddress_) external onlyOwner {
+        require(
+            upgradedAddress_ != address(0),
+            "upgrade contract address is zero"
+        );
         deprecated = true;
-        upgradedAddress = _upgradedAddress;
-        emit Deprecate(_upgradedAddress);
+        upgradedAddress = upgradedAddress_;
+        emit Deprecate(upgradedAddress_);
     }
 
     /**
@@ -518,24 +521,24 @@ contract Token is
     uint public decimals;
 
     /**
-     * @param _owner Initial owner of the contract
-     * @param _initialSupply Initial supply of the contract
-     * @param _supplier The wallet that receives initial supply of tokens
-     * @param _name Token Name
-     * @param _symbol Token symbol
-     * @param _decimals Token decimals
+     * @param owner Initial owner of the contract
+     * @param initialSupply Initial supply of the contract
+     * @param supplier The wallet that receives initial supply of tokens
+     * @param name_ Token Name
+     * @param symbol_ Token symbol
+     * @param decimals_ Token decimals
      */
     constructor(
-        address _owner,
-        uint _initialSupply,
-        address _supplier,
-        string memory _name,
-        string memory _symbol,
-        uint _decimals
-    ) Ownable(_owner) BasicToken(_initialSupply, _supplier) {
-        name = _name;
-        symbol = _symbol;
-        decimals = _decimals;
+        address owner,
+        uint initialSupply,
+        address supplier,
+        string memory name_,
+        string memory symbol_,
+        uint decimals_
+    ) Ownable(owner) BasicToken(initialSupply, supplier) {
+        name = name_;
+        symbol = symbol_;
+        decimals = decimals_;
     }
 
     /**
@@ -555,8 +558,8 @@ contract Token is
      * @inheritdoc ERC20Basic
      */
     function transfer(
-        address _to,
-        uint _value
+        address to,
+        uint value
     )
         public
         override(BasicToken, ERC20Basic)
@@ -568,11 +571,11 @@ contract Token is
             return
                 UpgradedStandardToken(upgradedAddress).transferByLegacy(
                     msg.sender,
-                    _to,
-                    _value
+                    to,
+                    value
                 );
         } else {
-            return super.transfer(_to, _value);
+            return super.transfer(to, value);
         }
     }
 
@@ -580,26 +583,26 @@ contract Token is
      * @inheritdoc ERC20
      */
     function transferFrom(
-        address _from,
-        address _to,
-        uint _value
+        address from,
+        address to,
+        uint value
     )
         public
         override(ERC20, StandardToken)
         whenNotPaused
-        whenNotBlackListed(_from)
+        whenNotBlackListed(from)
         returns (bool success)
     {
         if (deprecated) {
             return
                 UpgradedStandardToken(upgradedAddress).transferFromByLegacy(
                     msg.sender,
-                    _from,
-                    _to,
-                    _value
+                    from,
+                    to,
+                    value
                 );
         } else {
-            return super.transferFrom(_from, _to, _value);
+            return super.transferFrom(from, to, value);
         }
     }
 
@@ -620,18 +623,18 @@ contract Token is
      * @inheritdoc ERC20
      */
     function approve(
-        address _spender,
-        uint _value
+        address spender,
+        uint value
     ) public override(ERC20, StandardToken) returns (bool success) {
         if (deprecated) {
             return
                 UpgradedStandardToken(upgradedAddress).approveByLegacy(
                     msg.sender,
-                    _spender,
-                    _value
+                    spender,
+                    value
                 );
         } else {
-            return super.approve(_spender, _value);
+            return super.approve(spender, value);
         }
     }
 
@@ -639,13 +642,13 @@ contract Token is
      * @inheritdoc ERC20
      */
     function allowance(
-        address _owner,
-        address _spender
+        address owner,
+        address spender
     ) public view override(ERC20, StandardToken) returns (uint remaining) {
         if (deprecated) {
-            return StandardToken(upgradedAddress).allowance(_owner, _spender);
+            return StandardToken(upgradedAddress).allowance(owner, spender);
         } else {
-            return super.allowance(_owner, _spender);
+            return super.allowance(owner, spender);
         }
     }
 
@@ -653,18 +656,18 @@ contract Token is
      * @inheritdoc ERC20Extended
      */
     function batchTransfer(
-        address[] calldata _tos,
-        uint[] calldata _values
+        address[] calldata tos,
+        uint[] calldata values
     ) public override whenNotPaused whenNotBlackListed(msg.sender) {
         if (deprecated) {
             return
                 UpgradedStandardToken(upgradedAddress).batchTransferByLegacy(
                     msg.sender,
-                    _tos,
-                    _values
+                    tos,
+                    values
                 );
         } else {
-            return super.batchTransfer(_tos, _values);
+            return super.batchTransfer(tos, values);
         }
     }
 
