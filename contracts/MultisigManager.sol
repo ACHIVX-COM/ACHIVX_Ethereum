@@ -10,7 +10,8 @@ import "./ManagedToken.sol";
  * All actions should be approved by majority (N / 2 + 1) of owners.
  * List of owners can be changed with approval of the same majority of current owners.
  * There must always be at least 3 owner accounts.
- * @notice This contract supports fixed set of actions that can be performed on managed token contracts or the management contract itself.
+ * @notice This contract supports fixed set of actions that can be performed on managed token contracts
+ * (or the management contract itself).
  * Such actions include change of token ownership token supply regulation, token blacklist management, etc.
  * For each supported action, there are two methods.
  * First method named `request*` enables any owner account to suggest an action to perform.
@@ -22,15 +23,15 @@ contract MultisigManager {
     // region voting accounts management internal
     /**
      * @dev Minimal number of voting accounts.
-     * Attempts to initialize the contract with a number of voting accounts less than this one or to change list of voting accounts
-     * to such size will be reverted.
+     * Attempts to initialize the contract with a number of voting accounts less than this one or to change
+     * list of voting accounts to such size will be reverted.
      */
     uint public constant MIN_VOTING_ACCOUNTS = 3;
 
     /**
      * @dev Time interval during which a request may be approved.
-     * If a request is not completed after `REQUEST_APPROVAL_DEADLINE_SECONDS` seconds after creation, it can no longer be approved
-     * (and thus cannot be executed).
+     * If a request is not completed after `REQUEST_APPROVAL_DEADLINE_SECONDS` seconds after creation,
+     * it can no longer be approved (and thus cannot be executed).
      */
     uint public constant REQUEST_APPROVAL_DEADLINE_SECONDS = 2 days;
 
@@ -46,7 +47,8 @@ contract MultisigManager {
     /**
      * @dev Version of voting accounts list.
      * This number is increased every time the owners list changes.
-     * It is used to prevent requests initiated with different owners list from being approved after the list is changed.
+     * It is used to prevent requests initiated with different owners list from being approved after the list is
+     * changed - that's easier than checking which of the users who previously approved the request have been removed.
      */
     uint private votingAccountsListGeneration;
 
@@ -101,7 +103,10 @@ contract MultisigManager {
         bool completed;
         /** @dev `votingAccountsListGeneration` at moment of this request creation */
         uint generation;
-        /** @dev a timestamp (in seconds since UNIX epoch, like `block.timestamp`) after which the request can no longer be approved */
+        /**
+         * @dev a timestamp (in seconds since UNIX epoch, like `block.timestamp`)
+         * after which the request can no longer be approved
+         */
         uint deadline;
     }
 
@@ -128,7 +133,9 @@ contract MultisigManager {
         requests[reqId].approvedBy[msg.sender] = true;
         requests[reqId].approvals = 1;
         requests[reqId].generation = votingAccountsListGeneration;
-        requests[reqId].deadline = block.timestamp + REQUEST_APPROVAL_DEADLINE_SECONDS;
+        requests[reqId].deadline =
+            block.timestamp +
+            REQUEST_APPROVAL_DEADLINE_SECONDS;
     }
 
     /**
@@ -147,10 +154,7 @@ contract MultisigManager {
             req.generation == votingAccountsListGeneration,
             "request invalidated after voters list change"
         );
-        require(
-            block.timestamp <= req.deadline,
-            "request is outdated"
-        );
+        require(block.timestamp <= req.deadline, "request is outdated");
         require(
             !req.approvedBy[msg.sender],
             "already approved by this account"
@@ -187,7 +191,8 @@ contract MultisigManager {
 
     // region constructor
     /**
-     * @param votingAccounts initial list of voting accounts/owners. Should contain at least `MIN_VOTING_ACCOUNTS` distinct addresses.
+     * @param votingAccounts initial list of voting accounts/owners.
+     *                       Should contain at least `MIN_VOTING_ACCOUNTS` distinct addresses.
      */
     constructor(address[] memory votingAccounts) {
         for (uint i = 0; i < votingAccounts.length; ++i) {
