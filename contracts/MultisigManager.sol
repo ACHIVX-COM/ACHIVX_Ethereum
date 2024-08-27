@@ -112,7 +112,6 @@ contract MultisigManager {
      * @return reqId identifier of the created request; it can be used later to call `_approveRequest`
      */
     function _makeRequest() private votingAccountOnly returns (bytes32 reqId) {
-        require(isVotingAccount[msg.sender], "not a voting account");
         reqId = keccak256(
             abi.encode(requestCount++, blockhash(block.number - 1))
         );
@@ -127,7 +126,9 @@ contract MultisigManager {
      * @return approved `true` iff the approval is successful and is the last approval necessary to execute the request;
      * the caller is expected to execute the request immediately in such case.
      */
-    function _approveRequest(bytes32 reqId) private votingAccountOnly returns (bool approved) {
+    function _approveRequest(
+        bytes32 reqId
+    ) private votingAccountOnly returns (bool approved) {
         Request storage req = requests[reqId];
 
         require(req.approvals > 0, "invalid request id");
@@ -278,7 +279,10 @@ contract MultisigManager {
         address[] calldata addVoters,
         address[] calldata removeVoters
     ) external returns (bytes32 reqId) {
-        require(addVoters.length > 0 || removeVoters.length > 0);
+        require(
+            addVoters.length > 0 || removeVoters.length > 0,
+            "should either add or remove some accounts"
+        );
 
         reqId = _makeRequest();
         votersChangeRequests[reqId].addVoters = addVoters;
@@ -597,7 +601,7 @@ contract MultisigManager {
         ManagedToken token,
         address upgraded
     ) external whenTokenAddressValid(token) returns (bytes32 reqId) {
-        require(upgraded != address(0));
+        require(upgraded != address(0), "cannot upgrade to zero address");
 
         reqId = _makeRequest();
         deprecationRequests[reqId].token = token;
@@ -660,7 +664,7 @@ contract MultisigManager {
         uint amount,
         address to
     ) external whenTokenAddressValid(token) returns (bytes32 reqId) {
-        require(amount > 0);
+        require(amount > 0, "cannot issue 0 tokens");
 
         reqId = _makeRequest();
         issueRequests[reqId].token = token;
@@ -721,7 +725,7 @@ contract MultisigManager {
         ManagedToken token,
         uint amount
     ) external whenTokenAddressValid(token) returns (bytes32 reqId) {
-        require(amount > 0);
+        require(amount > 0, "cannot redeem 0 tokens");
 
         reqId = _makeRequest();
         redeemRequests[reqId].token = token;

@@ -171,7 +171,10 @@ abstract contract StandardToken is BasicToken, ERC20 {
         //  allowance to zero by calling `approve(spender, 0)` if it is not
         //  already 0 to mitigate the race condition described here:
         //  https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-        require(value == 0 || allowed[msg.sender][spender] == 0);
+        require(
+            value == 0 || allowed[msg.sender][spender] == 0,
+            "cannot change allowance from non-zero value to non-zero value"
+        );
 
         allowed[msg.sender][spender] = value;
         emit Approval(msg.sender, spender, value);
@@ -206,15 +209,17 @@ abstract contract ExtendedToken is StandardToken, ERC20Extended {
         address[] calldata tos,
         uint[] calldata values
     ) public virtual override {
-        require(tos.length == values.length);
+        require(
+            tos.length == values.length,
+            "destination addresses count does not match transfer amounts count"
+        );
         uint senderBalance = balances[msg.sender];
 
         for (uint i = 0; i < tos.length; ++i) {
             address to = tos[i];
-            require(to != address(0));
+            require(to != address(0), "cannot transfer to zero address");
             uint amount = values[i];
-            require(amount > 0);
-            require(amount <= senderBalance);
+            require(amount <= senderBalance, "not enough funds");
 
             if (to != msg.sender) {
                 senderBalance -= amount;
@@ -405,7 +410,10 @@ abstract contract Deprecateable is Ownable, IDeprecatable {
      */
     modifier onlyUpgraded() {
         require(deprecated, "contract not deprecated");
-        require(upgradedAddress == msg.sender);
+        require(
+            upgradedAddress == msg.sender,
+            "can only be called from upgraded contract"
+        );
         _;
     }
 
