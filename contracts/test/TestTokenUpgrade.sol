@@ -9,26 +9,31 @@ import "../TokenUpgrade.sol";
  * @dev Actual upgrade contract should at least also implement Ownable and Deprecatable (for further upgrades).
  */
 contract TestTokenUpgrade is TokenUpgrade {
-    using SafeMath for uint;
-
     constructor(LegacyToken _legacy) TokenUpgrade(_legacy) {}
 
     function transfer(address to, uint value) external returns (bool success) {
-        _setBalance(msg.sender, balanceOf(msg.sender).sub(value));
-        _setBalance(to, balanceOf(to).add(value));
+        _setBalance(msg.sender, balanceOf(msg.sender) - value);
+        _setBalance(to, balanceOf(to) + value);
         _emitTransfer(msg.sender, to, value);
         success = true;
     }
 
-    function transferFrom(address from, address to, uint value) external returns (bool success){
-        _setAllowance(from, to, allowance(from, msg.sender).sub(value));
-        _setBalance(from, balanceOf(from).sub(value));
-        _setBalance(to, balanceOf(to).add(value));
+    function transferFrom(
+        address from,
+        address to,
+        uint value
+    ) external returns (bool success) {
+        _setAllowance(from, to, allowance(from, msg.sender) - value);
+        _setBalance(from, balanceOf(from) - value);
+        _setBalance(to, balanceOf(to) + value);
         _emitTransfer(from, to, value);
         success = true;
     }
 
-    function approve(address spender, uint value) external returns (bool success){
+    function approve(
+        address spender,
+        uint value
+    ) external returns (bool success) {
         _setAllowance(msg.sender, spender, value);
         _emitApproval(msg.sender, spender, value);
         success = true;
@@ -39,8 +44,8 @@ contract TestTokenUpgrade is TokenUpgrade {
         address to,
         uint value
     ) external legacyOnly returns (bool success) {
-        _setBalance(from, balanceOf(from).sub(value));
-        _setBalance(to, balanceOf(to).add(value));
+        _setBalance(from, balanceOf(from) - value);
+        _setBalance(to, balanceOf(to) + value);
         _emitTransfer(from, to, value);
         success = true;
     }
@@ -51,9 +56,9 @@ contract TestTokenUpgrade is TokenUpgrade {
         address to,
         uint value
     ) external legacyOnly returns (bool success) {
-        _setAllowance(from, sender, allowance(from, sender).sub(value));
-        _setBalance(from, balanceOf(from).sub(value));
-        _setBalance(to, balanceOf(to).add(value));
+        _setAllowance(from, sender, allowance(from, sender) - value);
+        _setBalance(from, balanceOf(from) - value);
+        _setBalance(to, balanceOf(to) + value);
         _emitTransfer(from, to, value);
         success = true;
     }
@@ -79,10 +84,10 @@ contract TestTokenUpgrade is TokenUpgrade {
 
         for (uint i = 0; i < tos.length; ++i) {
             uint value = values[i];
-            fromBalance = fromBalance.sub(value);
+            fromBalance = fromBalance - value;
             address to = tos[i];
             require(to != from);
-            _setBalance(to, balanceOf(to).add(value));
+            _setBalance(to, balanceOf(to) + value);
             _emitTransfer(from, to, value);
         }
 

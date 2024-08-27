@@ -46,6 +46,134 @@ describe("Token", () => {
     });
   });
 
+  describe("transfer", () => {
+    it("should transfer tokens", async () => {
+      const {
+        token,
+        supplier,
+        accounts: [a1],
+      } = await loadFixture(deployToken);
+
+      await expect(
+        token.connect(supplier).transfer(a1, 100)
+      ).to.changeTokenBalances(token, [supplier, a1], [-100, 100]);
+    });
+
+    it("should emit transfer events", async () => {
+      const {
+        token,
+        supplier,
+        accounts: [a1],
+      } = await loadFixture(deployToken);
+
+      await expect(token.connect(supplier).transfer(a1, 100))
+        .to.emit(token, "Transfer")
+        .withArgs(supplier, a1, 100);
+    });
+
+    it("should revert when transferring amount beyond current balance", async () => {
+      const {
+        token,
+        supplier,
+        accounts: [a1, a2],
+      } = await loadFixture(deployToken);
+
+      await expect(token.connect(supplier).transfer(a1, 1001)).to.be.reverted;
+
+      await expect(token.connect(a1).transfer(a2, 1)).to.be.reverted;
+    });
+  });
+
+  describe("approve", () => {
+    it("should change allowance", async () => {
+      const {
+        token,
+        supplier,
+        accounts: [a1],
+      } = await loadFixture(deployToken);
+
+      expect(await token.allowance(supplier, a1)).to.be.equal(0);
+      await token.connect(supplier).approve(a1, 100);
+      expect(await token.allowance(supplier, a1)).to.be.equal(100);
+    });
+
+    it("should emit approval events", async () => {
+      const {
+        token,
+        supplier,
+        accounts: [a1],
+      } = await loadFixture(deployToken);
+
+      await expect(token.connect(supplier).approve(a1, 100))
+        .to.emit(token, "Approval")
+        .withArgs(supplier, a1, 100);
+    });
+
+    it("should not allow changing allowance from non-zero value to non-zero value", async () => {
+      const {
+        token,
+        supplier,
+        accounts: [a1],
+      } = await loadFixture(deployToken);
+
+      await token.connect(supplier).approve(a1, 100);
+      await expect(token.connect(supplier).approve(a1, 200)).to.be.reverted;
+    });
+
+    it("should allow changing allowance from non-zero to zero and back", async () => {
+      const {
+        token,
+        supplier,
+        accounts: [a1],
+      } = await loadFixture(deployToken);
+
+      await token.connect(supplier).approve(a1, 100);
+      await token.connect(supplier).approve(a1, 0);
+      await token.connect(supplier).approve(a1, 200);
+    });
+  });
+
+  describe("transferFrom", () => {
+    it("should transfer tokens", async () => {
+      const {
+        token,
+        supplier,
+        accounts: [a1, a2],
+      } = await loadFixture(deployToken);
+
+      await token.connect(supplier).approve(a1, 100);
+      await expect(
+        token.connect(a1).transferFrom(supplier, a2, 100)
+      ).to.changeTokenBalances(token, [supplier, a2], [-100, 100]);
+    });
+
+    it("should revert when trying to transfer tokens beyond allowance", async () => {
+      const {
+        token,
+        supplier,
+        accounts: [a1, a2],
+      } = await loadFixture(deployToken);
+
+      await token.connect(supplier).approve(a1, 100);
+      await expect(
+        token.connect(a1).transferFrom(supplier, a2, 101)
+      ).to.be.reverted;
+    });
+
+    it("should revert when trying to transfer tokens within allowance but beyond owner's balance", async () => {
+      const {
+        token,
+        supplier,
+        accounts: [a1, a2],
+      } = await loadFixture(deployToken);
+
+      await token.connect(supplier).approve(a1, 100000);
+      await expect(
+        token.connect(a1).transferFrom(supplier, a2, 1001)
+      ).to.be.reverted;
+    });
+  });
+
   describe("batchTransfer", () => {
     it("should transfer tokens to multiple accounts", async () => {
       const {
@@ -99,6 +227,29 @@ describe("Token", () => {
       } = await loadFixture(deployToken);
 
       await expect(token.connect(a1).issue(100, a1)).to.be.reverted;
+    });
+
+    it("should revert on overflow", async () => {
+      const {
+        token,
+        owner,
+        accounts: [a1],
+      } = await loadFixture(deployToken);
+
+      await token
+        .connect(owner)
+        .issue(
+          "0x8000000000000000000000000000000000000000000000000000000000000000",
+          a1
+        );
+      await expect(
+        token
+          .connect(owner)
+          .issue(
+            "0x8000000000000000000000000000000000000000000000000000000000000000",
+            a1
+          )
+      ).to.be.reverted;
     });
   });
 

@@ -4,39 +4,6 @@ pragma solidity 0.8.26;
 import "./ManagedToken.sol";
 
 /**
- * @title SafeMath
- * @dev Math operations with safety checks that throw on error
- */
-library SafeMath {
-    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-        if (a == 0) {
-            return 0;
-        }
-        uint256 c = a * b;
-        require(c / a == b);
-        return c;
-    }
-
-    function div(uint256 a, uint256 b) internal pure returns (uint256) {
-        // assert(b > 0); // Solidity automatically throws when dividing by 0
-        uint256 c = a / b;
-        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
-        return c;
-    }
-
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-        require(b <= a);
-        return a - b;
-    }
-
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 c = a + b;
-        require(c >= a);
-        return c;
-    }
-}
-
-/**
  * @title Ownable
  * @dev The Ownable contract has an owner address, and provides basic authorization control
  * functions, this simplifies the implementation of "user permissions".
@@ -121,8 +88,6 @@ interface ERC20Extended is ERC20 {
  * @dev Basic version of StandardToken, with no allowances.
  */
 abstract contract BasicToken is Ownable, ERC20Basic {
-    using SafeMath for uint;
-
     uint internal _totalSupply;
 
     mapping(address => uint) public balances;
@@ -142,8 +107,8 @@ abstract contract BasicToken is Ownable, ERC20Basic {
         address to,
         uint value
     ) public virtual override returns (bool success) {
-        balances[msg.sender] = balances[msg.sender].sub(value);
-        balances[to] = balances[to].add(value);
+        balances[msg.sender] -= value;
+        balances[to] += value;
         emit Transfer(msg.sender, to, value);
         success = true;
     }
@@ -167,8 +132,6 @@ abstract contract BasicToken is Ownable, ERC20Basic {
  * @dev https://github.com/ethereum/EIPs/issues/20
  */
 abstract contract StandardToken is BasicToken, ERC20 {
-    using SafeMath for uint;
-
     mapping(address => mapping(address => uint)) public allowed;
 
     uint public constant MAX_UINT = 2 ** 256 - 1;
@@ -187,10 +150,10 @@ abstract contract StandardToken is BasicToken, ERC20 {
         uint allowance_ = allowed[from][msg.sender];
 
         if (allowance_ < MAX_UINT) {
-            allowed[from][msg.sender] = allowance_.sub(value);
+            allowed[from][msg.sender] = allowance_ - value;
         }
-        balances[from] = balances[from].sub(value);
-        balances[to] = balances[to].add(value);
+        balances[from] -= value;
+        balances[to] += value;
         emit Transfer(from, to, value);
         success = true;
     }
@@ -234,8 +197,6 @@ abstract contract StandardToken is BasicToken, ERC20 {
  * @dev Implements a batch transfer method
  */
 abstract contract ExtendedToken is StandardToken, ERC20Extended {
-    using SafeMath for uint;
-
     /**
      * @notice transfer tokens to multiple addresses
      * @param tos addresses to transfer tokens to
@@ -256,8 +217,8 @@ abstract contract ExtendedToken is StandardToken, ERC20Extended {
             require(amount <= senderBalance);
 
             if (to != msg.sender) {
-                senderBalance = senderBalance.sub(amount);
-                balances[to] = balances[to].add(amount);
+                senderBalance -= amount;
+                balances[to] += amount;
             }
 
             emit Transfer(msg.sender, to, amount);
@@ -516,8 +477,6 @@ contract Token is
     BlackList,
     ManagedToken
 {
-    using SafeMath for uint;
-
     string public name;
     string public symbol;
     uint public immutable decimals;
@@ -732,11 +691,8 @@ contract Token is
         uint amount,
         address to
     ) external onlyOwner whenNotDeprecated {
-        require(_totalSupply + amount > _totalSupply);
-        require(balances[to] + amount > balances[to]);
-
-        balances[to] = balances[to].add(amount);
-        _totalSupply = _totalSupply.add(amount);
+        balances[to] += amount;
+        _totalSupply += amount;
         emit Issue(amount, to);
         emit Transfer(address(0), to, amount);
     }
@@ -745,8 +701,13 @@ contract Token is
      * @inheritdoc ISupply
      */
     function redeem(uint amount) external onlyOwner whenNotDeprecated {
-        _totalSupply = _totalSupply.sub(amount);
-        balances[owner] = balances[owner].sub(amount);
+        require(
+            balances[owner] >= amount,
+            "not enough funds on owner account to burn"
+        );
+
+        _totalSupply -= amount;
+        balances[owner] -= amount;
         emit Redeem(amount);
         emit Transfer(owner, address(0), amount);
     }
