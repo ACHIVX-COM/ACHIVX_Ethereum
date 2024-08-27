@@ -1,5 +1,6 @@
 const {
   loadFixture,
+  time,
 } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 const hre = require("hardhat");
 const { expect } = require("chai");
@@ -163,6 +164,27 @@ describe("Token with MultisigManager", () => {
           )
       ).to.be.rejectedWith("not a voting account");
     });
+
+    it("should not receive votes for outdated requests", async () => {
+      const {
+        multisigManager,
+        token,
+        voters,
+        accounts: [a1, a2],
+      } = await loadFixture(deployTokenWithMultisigManager);
+
+      await multisigManager.connect(voters[0]).requestIssue(token, 100, a1);
+
+      await time.increase(2 * 24 * 60 * 60); // 2 days
+
+      await expect(
+        multisigManager
+          .connect(voters[1])
+          .approveIssue(
+            await getLastRequestId(multisigManager, "IssueRequested")
+          )
+      ).to.be.revertedWith("request is outdated");
+    });
   });
 
   describe("requestRedeem+approveRedeem", () => {
@@ -267,7 +289,11 @@ describe("Token with MultisigManager", () => {
       } = await loadFixture(deployTokenWithMultisigManager);
 
       await multisigManager.connect(voters[0]).requestOwnerChange(token, a1);
-      await multisigManager.connect(voters[1]).approveOwnerChange(await getLastRequestId(multisigManager, 'OwnerChangeRequested'));
+      await multisigManager
+        .connect(voters[1])
+        .approveOwnerChange(
+          await getLastRequestId(multisigManager, "OwnerChangeRequested")
+        );
 
       await expect(token.connect(a1).pause()).to.not.be.reverted;
     });

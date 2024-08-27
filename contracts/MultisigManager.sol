@@ -27,6 +27,13 @@ contract MultisigManager {
      */
     uint public constant MIN_VOTING_ACCOUNTS = 3;
 
+    /**
+     * @dev Time interval during which a request may be approved.
+     * If a request is not completed after `REQUEST_APPROVAL_DEADLINE_SECONDS` seconds after creation, it can no longer be approved
+     * (and thus cannot be executed).
+     */
+    uint public constant REQUEST_APPROVAL_DEADLINE_SECONDS = 2 days;
+
     mapping(address => bool) public isVotingAccount;
 
     /**
@@ -94,6 +101,8 @@ contract MultisigManager {
         bool completed;
         /** @dev `votingAccountsListGeneration` at moment of this request creation */
         uint generation;
+        /** @dev a timestamp (in seconds since UNIX epoch, like `block.timestamp`) after which the request can no longer be approved */
+        uint deadline;
     }
 
     mapping(bytes32 => Request) private requests;
@@ -119,6 +128,7 @@ contract MultisigManager {
         requests[reqId].approvedBy[msg.sender] = true;
         requests[reqId].approvals = 1;
         requests[reqId].generation = votingAccountsListGeneration;
+        requests[reqId].deadline = block.timestamp + REQUEST_APPROVAL_DEADLINE_SECONDS;
     }
 
     /**
@@ -136,6 +146,10 @@ contract MultisigManager {
         require(
             req.generation == votingAccountsListGeneration,
             "request invalidated after voters list change"
+        );
+        require(
+            block.timestamp <= req.deadline,
+            "request is outdated"
         );
         require(
             !req.approvedBy[msg.sender],
