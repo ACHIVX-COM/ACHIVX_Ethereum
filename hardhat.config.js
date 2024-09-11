@@ -8,6 +8,10 @@ module.exports = {
       url: vars.get("MAINNET_GATEWAY_URL"),
       accounts: [vars.get("MAINNET_ACCOUNT_PRIVATE_KEY")],
     },
+    arbitrum: {
+      url: "https://arb1.arbitrum.io/rpc",
+      accounts: [vars.get("MAINNET_ACCOUNT_PRIVATE_KEY")],
+    },
   },
   etherscan: {
     apiKey: vars.get("ETHERSCAN_API_KEY"),
