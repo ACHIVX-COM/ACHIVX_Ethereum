@@ -36,6 +36,22 @@ module.exports = {
       url: "https://opbnb-rpc.publicnode.com",
       accounts: [vars.get("MAINNET_ACCOUNT_PRIVATE_KEY")],
     },
+    flowMain: {
+      url: "https://mainnet.evm.nodes.onflow.org",
+      accounts: [vars.get("MAINNET_ACCOUNT_PRIVATE_KEY")],
+    },
+    apeMain: {
+      url: "https://rpc.apechain.com",
+      accounts: [vars.get("MAINNET_ACCOUNT_PRIVATE_KEY")],
+    },
+    soleniumMain: {
+      url: "https://rpc.soneium.org",
+      accounts: [vars.get("MAINNET_ACCOUNT_PRIVATE_KEY")],
+    },
+    beraMain: {
+      url: "https://berachain-rpc.publicnode.com",
+      accounts: [vars.get("MAINNET_ACCOUNT_PRIVATE_KEY")],
+    },
   },
   etherscan: {
     apiKey: vars.get("ETHERSCAN_API_KEY"),
